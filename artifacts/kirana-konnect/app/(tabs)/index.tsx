@@ -48,7 +48,7 @@ export default function HomeScreen() {
 
   const handleViewShop = (shop: Shop) => {
     setSelectedShop(shop);
-    router.push(`/shop/${shop.id}`);
+    router.push("/shop/" + shop.id);
   };
 
   return (
@@ -154,9 +154,10 @@ export default function HomeScreen() {
                   <TouchableOpacity
                     key={shop.id}
                     style={[styles.nearbyCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onPress={() => setSelectedPin(shop)}
+                    onPress={() => handleViewShop(shop)}
+                    activeOpacity={0.8}
                   >
-                    <View style={[styles.nearbyIcon, { backgroundColor: colors.muted }]}>
+                    <View style={[styles.nearbyIcon, { backgroundColor: colors.primary + "18" }]}>
                       <Feather name="shopping-bag" size={20} color={colors.primary} />
                     </View>
                     <Text style={[styles.nearbyName, { color: colors.foreground }]} numberOfLines={1}>
@@ -166,6 +167,9 @@ export default function HomeScreen() {
                       <Feather name="star" size={10} color={colors.rating} />
                       <Text style={[styles.nearbyRating, { color: colors.foreground }]}>{shop.rating}</Text>
                       <Text style={[styles.nearbyDist, { color: colors.mutedForeground }]}>{shop.distance}</Text>
+                    </View>
+                    <View style={[styles.shopNowBtn, { backgroundColor: colors.primary }]}>
+                      <Text style={styles.shopNowText}>Shop</Text>
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -432,6 +436,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_400Regular",
     marginLeft: 2,
+  },
+  shopNowBtn: {
+    marginTop: 4,
+    borderRadius: 8,
+    paddingVertical: 5,
+    alignItems: "center",
+  },
+  shopNowText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#fff",
+    fontFamily: "Inter_700Bold",
   },
   listContainer: { flex: 1, marginTop: Platform.OS === "web" ? 180 : 140 },
   listHeader: {
