@@ -16,6 +16,35 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## Artifacts
+
+### Kirana Konnect (Mobile App)
+- **Path**: `artifacts/kirana-konnect/`
+- **Type**: Expo (React Native)
+- **Preview Path**: `/`
+- **Description**: Map-first hyperlocal grocery platform for discovering nearby kirana stores
+
+**Customer Features:**
+- Splash screen + OTP login
+- Map home screen with interactive shop pins
+- Shop detail with category tabs + product listing
+- Search (products + shops)
+- Cart with pickup/delivery toggle
+- Checkout with address + payment selection (COD/UPI)
+- Order tracking with auto-advancing status timeline
+- Order history with reorder functionality
+
+**Shopkeeper Features:**
+- Dashboard (today's orders, earnings, pending count)
+- Order management (accept/reject, pack, ready/dispatch)
+- Inventory management (add/edit/delete products, unit/category chips)
+
+**Tech:**
+- Expo Router (file-based routing)
+- React Context (AppContext) + AsyncStorage
+- Platform-specific map: `MapView.tsx` (native, react-native-maps 1.18.0) / `MapView.web.tsx` (web grid mock)
+- Colors: `#2E7D32` primary green, `#FF9800` accent orange
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages

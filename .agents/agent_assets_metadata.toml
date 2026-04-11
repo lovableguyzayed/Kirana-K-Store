@@ -1,0 +1,32 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "xKenXEGqxQ6C9fHJ8BKQm"
+uri = "file://artifacts/kirana-konnect/assets/images/icon.png"
+type = "image"
+title = "kirana konnect app icon"
+
+[[generated]]
+id = "QODXc9sjXaGmSXetCBi73"
+uri = "file://artifacts/kirana-konnect/assets/images/veggies.png"
+type = "image"
+title = "fresh vegetables"
+
+[[generated]]
+id = "pAGFdxrOtf3OwY1bmxg8g"
+uri = "file://artifacts/kirana-konnect/assets/images/kirana_store.png"
+type = "image"
+title = "kirana store interior"
+
+[[generated]]
+id = "VuswgBPPa_y2ILz-QOoUQ"
+uri = "file://artifacts/kirana-konnect/assets/images/amul_milk.png"
+type = "image"
+title = "amul milk product"
+
+[[generated]]
+id = "5q112uyNLvnTmLMqkofFF"
+uri = "file://artifacts/kirana-konnect/assets/images/atta.png"
+type = "image"
+title = "atta flour bag"
