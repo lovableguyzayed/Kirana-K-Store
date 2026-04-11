@@ -162,6 +162,22 @@ export const getProductsByShop = (shopId: string) => MOCK_PRODUCTS[shopId] || []
 
 const MOCK_ORDERS: Order[] = [
   {
+    id: "o003",
+    shopId: "s3",
+    shopName: "Mohan Kirana",
+    items: [
+      { id: "p3", name: "Britannia Bread", price: 40, unit: "loaf", shopId: "s3", shopName: "Mohan Kirana", category: "Bakery", stock: 20, quantity: 1 },
+      { id: "p4", name: "Tata Salt 1kg", price: 22, unit: "kg", shopId: "s3", shopName: "Mohan Kirana", category: "Staples", stock: 80, quantity: 2 },
+    ],
+    total: 84,
+    deliveryFee: 15,
+    status: "out_for_delivery",
+    mode: "delivery",
+    address: "Home - Block A, Sector 5",
+    paymentMethod: "cod",
+    placedAt: "2026-04-11T13:10:00Z",
+  },
+  {
     id: "o001",
     shopId: "s1",
     shopName: "Gupta Kirana",
@@ -205,7 +221,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (val) setCart(JSON.parse(val));
     });
     AsyncStorage.getItem("kk_orders").then((val) => {
-      if (val) setOrders(JSON.parse(val));
+      if (val) {
+        const saved: Order[] = JSON.parse(val);
+        const savedIds = new Set(saved.map((o) => o.id));
+        // Always ensure MOCK_ORDERS are present; user-placed orders take precedence
+        const merged = [
+          ...MOCK_ORDERS.filter((m) => !savedIds.has(m.id)),
+          ...saved,
+        ];
+        setOrders(merged);
+      }
     });
   }, []);
 

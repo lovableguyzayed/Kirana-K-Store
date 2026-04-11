@@ -111,10 +111,10 @@ export default function OrdersScreen() {
                 </TouchableOpacity>
               </View>
 
-              {(order.status === "accepted" || order.status === "packed" || order.status === "out_for_delivery") && (
+              {(order.status === "pending" || order.status === "accepted" || order.status === "packed" || order.status === "out_for_delivery") && (
                 <TouchableOpacity
                   style={[styles.trackBtn, { backgroundColor: colors.primary }]}
-                  onPress={() => router.push(`/tracking/${order.id}`)}
+                  onPress={() => router.push("/tracking/" + order.id)}
                 >
                   <Feather name="map-pin" size={14} color="#fff" />
                   <Text style={styles.trackText}>Track Order</Text>
