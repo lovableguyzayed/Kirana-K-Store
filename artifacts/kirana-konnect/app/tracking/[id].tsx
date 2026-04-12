@@ -34,114 +34,186 @@ const RIDER = {
   rating: "4.9",
 };
 
-// Shop pin grid position (percentage)
-const SHOP_POS = { x: 20, y: 65 };
-// Customer pin grid position (percentage)
-const CUST_POS = { x: 75, y: 30 };
+// Route waypoints (percentage of map width/height)
+const SHOP_POS  = { x: 12, y: 72 };
+const CUST_POS  = { x: 80, y: 22 };
+// Intermediate waypoints to make path look like roads
+const WAYPOINTS = [
+  { x: 12, y: 72 },
+  { x: 12, y: 50 },
+  { x: 45, y: 50 },
+  { x: 45, y: 22 },
+  { x: 80, y: 22 },
+];
+
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
+
+function getWaypointPos(t: number) {
+  const segments = WAYPOINTS.length - 1;
+  const segment = Math.min(Math.floor(t * segments), segments - 1);
+  const local = (t * segments) - segment;
+  const from = WAYPOINTS[segment];
+  const to = WAYPOINTS[segment + 1];
+  return { x: lerp(from.x, to.x, local), y: lerp(from.y, to.y, local) };
+}
 
 function RiderLiveMap({ isDelivered }: { isDelivered: boolean }) {
-  const colors = useColors();
-  const riderProgress = useRef(new Animated.Value(0)).current;
+  const progressRef = useRef(isDelivered ? 0.95 : 0.15);
+  const riderX = useRef(new Animated.Value(SHOP_POS.x)).current;
+  const riderY = useRef(new Animated.Value(SHOP_POS.y)).current;
+  const bobAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [distanceText, setDistanceText] = useState("~1.6 km away");
 
   useEffect(() => {
-    // Animate rider from shop to customer over 30 seconds
-    Animated.timing(riderProgress, {
-      toValue: isDelivered ? 1 : 0.85,
-      duration: isDelivered ? 0 : 30000,
-      useNativeDriver: false,
-    }).start();
+    if (isDelivered) {
+      riderX.setValue(CUST_POS.x);
+      riderY.setValue(CUST_POS.y);
+      setDistanceText("Delivered!");
+      return;
+    }
 
-    // Pulse animation for rider dot (useNativeDriver: false for web compat)
+    // Smoothly move rider along waypoints, looping
+    const interval = setInterval(() => {
+      progressRef.current += 0.0025; // full path in ~14s
+      if (progressRef.current > 0.93) {
+        progressRef.current = 0.12; // reset near shop
+      }
+      const pos = getWaypointPos(progressRef.current);
+      riderX.setValue(pos.x);
+      riderY.setValue(pos.y);
+
+      // Update distance label
+      const remaining = 1 - progressRef.current;
+      const km = (remaining * 2.1).toFixed(1);
+      setDistanceText(`~${km} km away`);
+    }, 60);
+
+    // Bob up/down animation to simulate road bumps
+    const bob = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bobAnim, { toValue: -3, duration: 300, useNativeDriver: false }),
+        Animated.timing(bobAnim, { toValue: 3, duration: 300, useNativeDriver: false }),
+      ])
+    );
+    bob.start();
+
+    // Pulse ring
     const pulse = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.3, duration: 700, useNativeDriver: false }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: false }),
+        Animated.timing(pulseAnim, { toValue: 1.6, duration: 800, useNativeDriver: false }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: false }),
       ])
     );
     pulse.start();
-    return () => pulse.stop();
+
+    return () => {
+      clearInterval(interval);
+      bob.stop();
+      pulse.stop();
+    };
   }, [isDelivered]);
 
-  const riderLeft = riderProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [`${SHOP_POS.x}%`, `${CUST_POS.x}%`],
-  });
-  const riderTop = riderProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [`${SHOP_POS.y}%`, `${CUST_POS.y}%`],
-  });
+  // Convert percentage to Animated style
+  const leftStyle = riderX.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] });
+  const topStyle  = riderY.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] });
 
   return (
-    <View style={[styles.liveMap, { backgroundColor: "#E8F5E9" }]}>
-      {/* Grid */}
-      <View style={StyleSheet.absoluteFill}>
-        {Array.from({ length: 5 }).map((_, row) =>
-          Array.from({ length: 7 }).map((_, col) => (
-            <View
-              key={`${row}-${col}`}
-              style={[
-                styles.gridCell,
-                {
-                  left: `${(col / 7) * 100}%` as any,
-                  top: `${(row / 5) * 100}%` as any,
-                  width: "14.28%",
-                  height: "20%",
-                  borderColor: "#C8E6C9",
-                  backgroundColor: (row + col) % 3 === 0 ? "#F1F8E9" : "#E8F5E9",
-                },
-              ]}
-            />
-          ))
-        )}
-      </View>
+    <View style={[styles.liveMap, { backgroundColor: "#dce8d4" }]}>
+      {/* Map base — block tiles */}
+      <View style={[styles.mapTile, { left: 0, top: 0, width: "100%", height: "100%", backgroundColor: "#e4f0db" }]} />
+      <View style={[styles.mapTile, { left: "10%", top: "10%", width: "35%", height: "30%", backgroundColor: "#d0e8c5" }]} />
+      <View style={[styles.mapTile, { left: "55%", top: "55%", width: "38%", height: "35%", backgroundColor: "#d0e8c5" }]} />
+      <View style={[styles.mapTile, { left: "15%", top: "62%", width: "22%", height: "28%", backgroundColor: "#c8e0be" }]} />
+      <View style={[styles.mapTile, { left: "60%", top: "10%", width: "30%", height: "35%", backgroundColor: "#c8e0be" }]} />
 
-      {/* Road lines */}
-      <View style={[styles.roadH, { top: "50%", backgroundColor: "#C8E6C9" }]} />
-      <View style={[styles.roadV, { left: "45%", backgroundColor: "#C8E6C9" }]} />
+      {/* Roads — horizontal */}
+      <View style={[styles.road, { left: 0, right: 0, top: "47%", height: 14, backgroundColor: "#bfcfb8" }]} />
+      {/* Roads — vertical */}
+      <View style={[styles.road, { top: 0, bottom: 0, left: "43%", width: 14, backgroundColor: "#bfcfb8" }]} />
 
-      {/* Dashed path line (static approximation) */}
-      {[0, 1, 2, 3, 4, 5].map((i) => (
-        <View
-          key={i}
-          style={[
-            styles.dashDot,
-            {
-              left: `${SHOP_POS.x + ((CUST_POS.x - SHOP_POS.x) / 6) * i + 3}%` as any,
-              top: `${SHOP_POS.y + ((CUST_POS.y - SHOP_POS.y) / 6) * i + 2}%` as any,
-              backgroundColor: "#4CAF50",
-              opacity: 0.5,
-            },
-          ]}
-        />
+      {/* Road center dashes — horizontal */}
+      {[0,1,2,3,4,5,6].map(i => (
+        <View key={`dh${i}`} style={[styles.roadDash, {
+          left: `${i * 15}%` as any, top: "49.5%", width: "8%", height: 3, backgroundColor: "#a8b8a0"
+        }]} />
+      ))}
+      {/* Road center dashes — vertical */}
+      {[0,1,2,3,4].map(i => (
+        <View key={`dv${i}`} style={[styles.roadDash, {
+          left: "45.5%", top: `${i * 22}%` as any, width: 3, height: "12%", backgroundColor: "#a8b8a0"
+        }]} />
       ))}
 
+      {/* Route path dots */}
+      {[0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85].map((t) => {
+        const p = getWaypointPos(t);
+        return (
+          <View
+            key={t}
+            style={[styles.routeDot, {
+              left: `${p.x}%` as any,
+              top: `${p.y}%` as any,
+              backgroundColor: "#FF9800",
+              opacity: 0.4,
+            }]}
+          />
+        );
+      })}
+
       {/* Shop Pin */}
-      <View style={[styles.shopPin, { left: `${SHOP_POS.x - 3}%` as any, top: `${SHOP_POS.y - 8}%` as any, backgroundColor: "#2E7D32" }]}>
-        <Feather name="shopping-bag" size={11} color="#fff" />
-      </View>
-      <View style={[styles.pinLabel, { left: `${SHOP_POS.x - 4}%` as any, top: `${SHOP_POS.y + 6}%` as any, backgroundColor: "#2E7D32" }]}>
-        <Text style={styles.pinLabelText}>Shop</Text>
+      <View style={[styles.pinWrap, { left: `${SHOP_POS.x - 4}%` as any, top: `${SHOP_POS.y - 14}%` as any }]}>
+        <View style={[styles.pinBubble, { backgroundColor: "#2E7D32" }]}>
+          <Text style={styles.pinEmoji}>🛒</Text>
+        </View>
+        <View style={[styles.pinNeedle, { borderTopColor: "#2E7D32" }]} />
+        <View style={[styles.pinTag, { backgroundColor: "#2E7D32" }]}>
+          <Text style={styles.pinTagText}>Shop</Text>
+        </View>
       </View>
 
-      {/* Customer Pin */}
-      <View style={[styles.shopPin, { left: `${CUST_POS.x - 3}%` as any, top: `${CUST_POS.y - 8}%` as any, backgroundColor: "#D32F2F" }]}>
-        <Feather name="home" size={11} color="#fff" />
-      </View>
-      <View style={[styles.pinLabel, { left: `${CUST_POS.x - 4}%` as any, top: `${CUST_POS.y + 6}%` as any, backgroundColor: "#D32F2F" }]}>
-        <Text style={styles.pinLabelText}>You</Text>
+      {/* Customer (You) Pin */}
+      <View style={[styles.pinWrap, { left: `${CUST_POS.x - 4}%` as any, top: `${CUST_POS.y - 14}%` as any }]}>
+        <View style={[styles.pinBubble, { backgroundColor: "#C62828" }]}>
+          <Text style={styles.pinEmoji}>🏠</Text>
+        </View>
+        <View style={[styles.pinNeedle, { borderTopColor: "#C62828" }]} />
+        <View style={[styles.pinTag, { backgroundColor: "#C62828" }]}>
+          <Text style={styles.pinTagText}>You</Text>
+        </View>
       </View>
 
       {/* Animated Rider Marker */}
-      <Animated.View style={[styles.riderMarkerWrap, { left: riderLeft, top: riderTop }]}>
-        <Animated.View style={[styles.riderPulse, { transform: [{ scale: pulseAnim }], borderColor: "#FF9800" }]} />
-        <View style={[styles.riderDot, { backgroundColor: "#FF9800", borderColor: "#fff" }]}>
-          <Feather name="truck" size={11} color="#fff" />
+      <Animated.View
+        style={[
+          styles.riderWrap,
+          { left: leftStyle, top: topStyle },
+          { transform: [{ translateY: bobAnim }] },
+        ]}
+      >
+        {/* Pulsing ring */}
+        <Animated.View
+          style={[
+            styles.riderRing,
+            { transform: [{ scale: pulseAnim }], borderColor: "#FF9800", opacity: 0.45 },
+          ]}
+        />
+        {/* Shadow */}
+        <View style={styles.riderShadow} />
+        {/* Main bubble */}
+        <View style={[styles.riderBubble, { backgroundColor: "#FF6F00" }]}>
+          <Text style={styles.riderEmoji}>🛵</Text>
+        </View>
+        {/* Distance callout */}
+        <View style={[styles.riderCallout, { backgroundColor: "#FF6F00" }]}>
+          <Text style={styles.riderCalloutText}>{distanceText}</Text>
         </View>
       </Animated.View>
 
-      {/* Live badge */}
-      <View style={[styles.liveBadge, { backgroundColor: "#D32F2F" }]}>
+      {/* LIVE badge */}
+      <View style={[styles.liveBadge, { backgroundColor: "#C62828" }]}>
         <View style={styles.liveDot} />
         <Text style={styles.liveBadgeText}>LIVE</Text>
       </View>
@@ -439,79 +511,127 @@ const styles = StyleSheet.create({
 
   // Live map
   liveMap: {
-    height: 180,
+    height: 260,
     position: "relative",
     overflow: "hidden",
   },
-  gridCell: {
+  mapTile: {
     position: "absolute",
-    borderWidth: 0.5,
+    borderRadius: 4,
   },
-  roadH: {
+  road: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    height: 7,
-    opacity: 0.8,
   },
-  roadV: {
+  roadDash: {
     position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: 7,
-    opacity: 0.8,
+    borderRadius: 2,
+    opacity: 0.6,
   },
-  dashDot: {
+  routeDot: {
     position: "absolute",
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginLeft: -4,
+    marginTop: -4,
   },
-  shopPin: {
+  pinWrap: {
     position: "absolute",
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    alignItems: "center",
+  },
+  pinBubble: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
   },
-  pinLabel: {
-    position: "absolute",
-    paddingHorizontal: 5,
+  pinEmoji: {
+    fontSize: 18,
+  },
+  pinNeedle: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 8,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    marginTop: -1,
+  },
+  pinTag: {
+    marginTop: 3,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 8,
   },
-  pinLabelText: {
+  pinTagText: {
     color: "#fff",
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "700",
   },
-  riderMarkerWrap: {
+  riderWrap: {
     position: "absolute",
-    width: 36,
-    height: 36,
+    alignItems: "center",
+    marginLeft: -26,
+    marginTop: -26,
+  },
+  riderRing: {
+    position: "absolute",
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
+    marginLeft: -9,
+    marginTop: -9,
+  },
+  riderShadow: {
+    position: "absolute",
+    bottom: -4,
+    width: 40,
+    height: 10,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.2)",
+  },
+  riderBubble: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: -18,
-    marginTop: -18,
+    borderWidth: 3,
+    borderColor: "#fff",
+    shadowColor: "#FF6F00",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 10,
   },
-  riderPulse: {
-    position: "absolute",
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2,
-    opacity: 0.4,
+  riderEmoji: {
+    fontSize: 26,
   },
-  riderDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
+  riderCallout: {
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  riderCalloutText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
   },
   liveBadge: {
     position: "absolute",
