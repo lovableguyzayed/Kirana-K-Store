@@ -5,7 +5,7 @@ outputs = []
 id = "xKenXEGqxQ6C9fHJ8BKQm"
 uri = "file://artifacts/kirana-konnect/assets/images/icon.png"
 type = "image"
-title = "kirana konnect app icon"
+title = "kirana konnect KC app icon"
 
 [[generated]]
 id = "QODXc9sjXaGmSXetCBi73"
