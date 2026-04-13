@@ -4,6 +4,7 @@ import * as Haptics from "expo-haptics";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -75,8 +76,12 @@ export default function LoginScreen() {
         ]}
       >
         <View style={styles.header}>
-          <View style={[styles.logo, { backgroundColor: colors.primary }]}>
-            <Feather name="shopping-bag" size={28} color="#fff" />
+          <View style={styles.logo}>
+            <Image
+              source={require("../assets/images/icon.png")}
+              style={styles.logoImg}
+              resizeMode="contain"
+            />
           </View>
           <Text style={[styles.title, { color: colors.foreground }]}>Kirana Konnect</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
