@@ -40,118 +40,132 @@ export default function ProductCard({ product, cartItem }: ProductCardProps) {
   const weightProduct = isWeightBased(product);
   const [modalVisible, setModalVisible] = useState(false);
 
+  const haptic = () => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
   const handleAdd = () => {
     if (weightProduct) {
       setModalVisible(true);
-      return;
-    }
-    addToCart(product);
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const handleIncrease = () => {
-    updateQuantity(product.id, (cartItem?.quantity || 0) + 1);
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const handleDecrease = () => {
-    if ((cartItem?.quantity || 0) <= 1) {
-      removeFromCart(product.id);
     } else {
-      updateQuantity(product.id, (cartItem?.quantity || 0) - 1);
+      addToCart(product);
+      haptic();
     }
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const iconName = (CATEGORY_ICONS[product.category] || "package") as any;
   const iconBgColor = CATEGORY_COLORS[product.category] || "#A5D6A7";
-  const displayUnit = cartItem?.selectedWeight ? cartItem.selectedWeight : product.unit;
 
   return (
     <>
-      <TouchableOpacity
-        style={[styles.card, { backgroundColor: colors.background, borderColor: colors.border }]}
-        onPress={() => router.push(`/product/${product.id}`)}
-        activeOpacity={0.85}
-      >
-        <View style={[styles.imgBox, { backgroundColor: iconBgColor + "30" }]}>
-          <Feather name={iconName} size={24} color={iconBgColor} />
-          {weightProduct && (
-            <View style={[styles.weightTag, { backgroundColor: iconBgColor }]}>
-              <Text style={styles.weightTagText}>{product.unit === "litre" || product.unit === "liter" || product.unit === "ml" ? "L" : "kg"}</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.info}>
-          <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={2}>
-            {product.name}
-          </Text>
-          <Text style={[styles.unit, { color: colors.mutedForeground }]}>
-            {cartItem?.selectedWeight ? (
-              <>{cartItem.selectedWeight} · ₹{cartItem.price}</>
-            ) : (
-              <>{product.unit}{weightProduct ? " · tap to select" : ""}</>
+      {/* Card — product info is tappable (navigate), action buttons are separate */}
+      <View style={[styles.card, { backgroundColor: colors.background, borderColor: colors.border }]}>
+        {/* Left: icon + info — navigates to product detail */}
+        <TouchableOpacity
+          style={styles.cardLeft}
+          onPress={() => router.push(`/product/${product.id}`)}
+          activeOpacity={0.75}
+        >
+          <View style={[styles.imgBox, { backgroundColor: iconBgColor + "30" }]}>
+            <Feather name={iconName} size={24} color={iconBgColor} />
+            {weightProduct && (
+              <View style={[styles.weightTag, { backgroundColor: iconBgColor }]}>
+                <Text style={styles.weightTagText}>
+                  {product.unit === "litre" || product.unit === "liter" || product.unit === "ml" ? "L" : "kg"}
+                </Text>
+              </View>
             )}
-          </Text>
-          <Text style={[styles.price, { color: colors.foreground }]}>₹{product.price}</Text>
-        </View>
+          </View>
+          <View style={styles.info}>
+            <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={2}>
+              {product.name}
+            </Text>
+            <Text style={[styles.unitText, { color: colors.mutedForeground }]}>
+              {cartItem?.selectedWeight
+                ? cartItem.selectedWeight
+                : weightProduct
+                ? `${product.unit} · tap to select`
+                : product.unit}
+            </Text>
+            <Text style={[styles.price, { color: colors.foreground }]}>₹{product.price}</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Right: action buttons — DO NOT navigate */}
         <View style={styles.actions}>
           {cartItem ? (
             weightProduct ? (
-              /* Weight-based in cart: show qty + edit button */
               <View style={styles.weightCartControls}>
+                <TouchableOpacity
+                  style={[styles.editWeightBtn, { backgroundColor: colors.primary + "18", borderColor: colors.primary + "40" }]}
+                  onPress={() => setModalVisible(true)}
+                >
+                  <Feather name="edit-2" size={12} color={colors.primary} />
+                  <Text style={[styles.editWeightText, { color: colors.primary }]}>Edit</Text>
+                </TouchableOpacity>
                 <View style={[styles.qtyControl, { borderColor: colors.primary }]}>
                   <TouchableOpacity
-                    onPress={(e) => { e.stopPropagation?.(); handleDecrease(); }}
                     style={styles.qtyBtn}
+                    onPress={() => {
+                      if ((cartItem.quantity || 0) <= 1) removeFromCart(product.id);
+                      else updateQuantity(product.id, cartItem.quantity - 1);
+                      haptic();
+                    }}
                   >
-                    <Feather name="minus" size={14} color={colors.primary} />
+                    <Feather name="minus" size={13} color={colors.primary} />
                   </TouchableOpacity>
                   <Text style={[styles.qty, { color: colors.primary }]}>{cartItem.quantity}</Text>
                   <TouchableOpacity
-                    onPress={(e) => { e.stopPropagation?.(); handleIncrease(); }}
                     style={styles.qtyBtn}
+                    onPress={() => { updateQuantity(product.id, cartItem.quantity + 1); haptic(); }}
                   >
-                    <Feather name="plus" size={14} color={colors.primary} />
+                    <Feather name="plus" size={13} color={colors.primary} />
                   </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  style={[styles.editWeightBtn, { backgroundColor: colors.primary + "15" }]}
-                  onPress={(e) => { e.stopPropagation?.(); setModalVisible(true); }}
-                >
-                  <Feather name="edit-2" size={12} color={colors.primary} />
-                </TouchableOpacity>
               </View>
             ) : (
-              /* Unit-based in cart: normal +/- */
               <View style={[styles.qtyControl, { borderColor: colors.primary }]}>
-                <TouchableOpacity onPress={handleDecrease} style={styles.qtyBtn}>
-                  <Feather name="minus" size={14} color={colors.primary} />
+                <TouchableOpacity
+                  style={styles.qtyBtn}
+                  onPress={() => {
+                    if ((cartItem.quantity || 0) <= 1) removeFromCart(product.id);
+                    else updateQuantity(product.id, cartItem.quantity - 1);
+                    haptic();
+                  }}
+                >
+                  <Feather name="minus" size={13} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={[styles.qty, { color: colors.primary }]}>{cartItem.quantity}</Text>
-                <TouchableOpacity onPress={handleIncrease} style={styles.qtyBtn}>
-                  <Feather name="plus" size={14} color={colors.primary} />
+                <TouchableOpacity
+                  style={styles.qtyBtn}
+                  onPress={() => { updateQuantity(product.id, cartItem.quantity + 1); haptic(); }}
+                >
+                  <Feather name="plus" size={13} color={colors.primary} />
                 </TouchableOpacity>
               </View>
             )
           ) : (
             <TouchableOpacity
               style={[styles.addBtn, { backgroundColor: colors.primary }]}
-              onPress={(e) => { e.stopPropagation?.(); handleAdd(); }}
+              onPress={handleAdd}
               activeOpacity={0.85}
             >
               {weightProduct ? (
-                <Feather name="sliders" size={14} color="#fff" />
+                <>
+                  <Feather name="sliders" size={13} color="#fff" />
+                  <Text style={styles.addText}>Select</Text>
+                </>
               ) : (
-                <Feather name="plus" size={16} color="#fff" />
+                <>
+                  <Feather name="plus" size={15} color="#fff" />
+                  <Text style={styles.addText}>Add</Text>
+                </>
               )}
-              <Text style={styles.addText}>{weightProduct ? "Select" : "Add"}</Text>
             </TouchableOpacity>
           )}
         </View>
-      </TouchableOpacity>
+      </View>
 
-      {/* Weight-based Add to Cart Modal */}
       <AddToCartModal
         product={product}
         cartItem={cartItem}
@@ -166,16 +180,24 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 14,
     borderWidth: 1,
-    padding: 12,
+    paddingVertical: 12,
+    paddingLeft: 12,
+    paddingRight: 10,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 0,
     marginBottom: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 3,
     elevation: 1,
+  },
+  cardLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   imgBox: {
     width: 56,
@@ -209,7 +231,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     lineHeight: 18,
   },
-  unit: {
+  unitText: {
     fontSize: 11,
     fontFamily: "Inter_400Regular",
   },
@@ -221,13 +243,15 @@ const styles = StyleSheet.create({
   },
   actions: {
     alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
   },
   addBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: 10,
   },
   addText: {
@@ -245,7 +269,7 @@ const styles = StyleSheet.create({
   },
   qtyBtn: {
     paddingHorizontal: 8,
-    paddingVertical: 7,
+    paddingVertical: 8,
   },
   qty: {
     fontSize: 14,
@@ -256,14 +280,20 @@ const styles = StyleSheet.create({
   },
   weightCartControls: {
     alignItems: "center",
-    gap: 4,
+    gap: 5,
   },
   editWeightBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
+    borderWidth: 1,
+  },
+  editWeightText: {
+    fontSize: 11,
+    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold",
   },
 });
