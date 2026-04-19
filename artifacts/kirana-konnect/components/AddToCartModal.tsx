@@ -1,18 +1,21 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 
-import { CartItem, Product, getWeightOptions } from "@/context/AppContext";
-import { useApp } from "@/context/AppContext";
+import { CartItem, Product, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
 interface Props {
@@ -22,322 +25,385 @@ interface Props {
   onClose: () => void;
 }
 
-const PRICE_PRESETS = [10, 20, 30, 50, 100, 200];
+type WeightUnit = "kg" | "gram" | "litre" | "ml";
 
-function formatWeight(grams: number): string {
-  if (grams >= 1000) {
-    const kg = grams / 1000;
-    return kg % 1 === 0 ? `${kg} kg` : `${kg.toFixed(2)} kg`;
+function getUnitOptions(product: Product): WeightUnit[] {
+  const u = product.unit.toLowerCase();
+  if (u === "litre" || u === "liter" || u === "ml") return ["litre", "ml"];
+  return ["kg", "gram"];
+}
+
+function computePrice(product: Product, value: number, unit: WeightUnit): number {
+  const pricePerKg = product.price;
+  let grams = 0;
+  if (unit === "kg") grams = value * 1000;
+  else if (unit === "gram") grams = value;
+  else if (unit === "litre") grams = value * 1000;
+  else if (unit === "ml") grams = value;
+  return Math.round((pricePerKg * grams) / 1000);
+}
+
+function computeWeight(product: Product, price: number, unit: WeightUnit): number {
+  const pricePerKg = product.price;
+  if (pricePerKg === 0) return 0;
+  const grams = (price / pricePerKg) * 1000;
+  if (unit === "kg") return parseFloat((grams / 1000).toFixed(3));
+  else if (unit === "gram") return Math.round(grams);
+  else if (unit === "litre") return parseFloat((grams / 1000).toFixed(3));
+  else return Math.round(grams);
+}
+
+function formatWeightLabel(value: number, unit: WeightUnit): string {
+  if (unit === "kg" || unit === "litre") {
+    return `${parseFloat(value.toFixed(3))} ${unit === "litre" ? "L" : "kg"}`;
   }
-  return `${Math.round(grams)} g`;
+  return `${value} ${unit === "ml" ? "ml" : "g"}`;
 }
 
 export default function AddToCartModal({ product, cartItem, visible, onClose }: Props) {
   const colors = useColors();
-  const { addToCart, updateQuantity, removeFromCart } = useApp();
+  const { addToCart, updateQuantity } = useApp();
+  const slideAnim = useRef(new Animated.Value(400)).current;
 
   const [tab, setTab] = useState<"weight" | "price">("weight");
-  const [selectedWeight, setSelectedWeight] = useState<{ label: string; multiplier: number } | null>(null);
-  const [selectedPrice, setSelectedPrice] = useState<number | null>(null);
+  const [weightInput, setWeightInput] = useState("500");
+  const [priceInput, setPriceInput] = useState("30");
+  const [selectedUnit, setSelectedUnit] = useState<WeightUnit>("kg");
   const [qty, setQty] = useState(1);
 
-  const weightOptions = product ? getWeightOptions(product.unit) : [];
   const isEditing = !!cartItem;
+  const unitOptions = product ? getUnitOptions(product) : (["kg", "gram"] as WeightUnit[]);
+  const isLiquid = unitOptions[0] === "litre";
 
   useEffect(() => {
     if (visible && product) {
+      const opts = getUnitOptions(product);
+      setSelectedUnit(opts[0]);
       setTab("weight");
       setQty(cartItem?.quantity || 1);
-      if (cartItem?.selectedWeight) {
-        const match = weightOptions.find((w) => w.label === cartItem.selectedWeight);
-        setSelectedWeight(match || weightOptions[1] || null);
-      } else {
-        setSelectedWeight(weightOptions[1] || weightOptions[0] || null);
-      }
-      setSelectedPrice(PRICE_PRESETS[1]);
+      setWeightInput("500");
+      setPriceInput(product.price.toString());
     }
   }, [visible, product?.id]);
 
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: false,
+        tension: 65,
+        friction: 11,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: 400,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [visible]);
+
   if (!product) return null;
 
-  const effectiveWeightPrice = selectedWeight
-    ? Math.round(product.price * selectedWeight.multiplier)
-    : 0;
+  const weightValue = parseFloat(weightInput) || 0;
+  const priceValue = parseFloat(priceInput) || 0;
 
-  const effectivePriceWeightGrams = selectedPrice
-    ? (selectedPrice / product.price) * 1000
-    : 0;
+  const calculatedPriceFromWeight = computePrice(product, weightValue, selectedUnit);
+  const calculatedWeightFromPrice = computeWeight(product, priceValue, selectedUnit);
 
-  const totalByWeight = effectiveWeightPrice * qty;
-  const totalByPrice = (selectedPrice || 0) * qty;
+  const isWeightValid = weightValue > 0 && calculatedPriceFromWeight > 0;
+  const isPriceValid = priceValue > 0;
 
   const handleAddByWeight = () => {
-    if (!selectedWeight) return;
+    if (!isWeightValid) return;
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (isEditing) {
-      addToCart(product, { selectedWeight: selectedWeight.label, priceOverride: effectiveWeightPrice });
-      if (qty !== cartItem?.quantity) {
-        updateQuantity(product.id, qty);
-      }
-    } else {
-      addToCart(product, { selectedWeight: selectedWeight.label, priceOverride: effectiveWeightPrice });
-      if (qty > 1) updateQuantity(product.id, qty);
-    }
+    const label = formatWeightLabel(weightValue, selectedUnit);
+    addToCart(product, { selectedWeight: label, priceOverride: calculatedPriceFromWeight });
+    if (qty > 1) updateQuantity(product.id, qty);
     onClose();
   };
 
   const handleAddByPrice = () => {
-    if (!selectedPrice) return;
+    if (!isPriceValid) return;
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const weightLabel = formatWeight(effectivePriceWeightGrams);
-    if (isEditing) {
-      addToCart(product, { selectedWeight: weightLabel, priceOverride: selectedPrice });
-      if (qty !== cartItem?.quantity) updateQuantity(product.id, qty);
-    } else {
-      addToCart(product, { selectedWeight: weightLabel, priceOverride: selectedPrice });
-      if (qty > 1) updateQuantity(product.id, qty);
-    }
+    const label = formatWeightLabel(calculatedWeightFromPrice, selectedUnit);
+    addToCart(product, { selectedWeight: label, priceOverride: priceValue });
+    if (qty > 1) updateQuantity(product.id, qty);
     onClose();
   };
 
-  const unitLabel = product.unit.toLowerCase().includes("litre") ||
-    product.unit.toLowerCase().includes("liter") ||
-    product.unit.toLowerCase() === "ml"
-    ? "volume"
-    : "weight";
+  const totalAmount = tab === "weight"
+    ? calculatedPriceFromWeight * qty
+    : priceValue * qty;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose} />
-      <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-        <View style={styles.handle} />
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <KeyboardAvoidingView
+        style={styles.wrapper}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); onClose(); }}>
+          <View style={styles.overlay} />
+        </TouchableWithoutFeedback>
 
-        {/* Product Info */}
-        <View style={styles.productInfo}>
-          <View>
-            <Text style={[styles.productName, { color: colors.foreground }]} numberOfLines={1}>
-              {product.name}
-            </Text>
-            <Text style={[styles.productShop, { color: colors.mutedForeground }]}>
-              {product.shopName} · ₹{product.price} per {product.unit}
-            </Text>
+        <Animated.View
+          style={[styles.sheet, { backgroundColor: colors.background, transform: [{ translateY: slideAnim }] }]}
+        >
+          <View style={styles.handle} />
+
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.productName, { color: colors.foreground }]} numberOfLines={1}>
+                {product.name}
+              </Text>
+              <Text style={[styles.productMeta, { color: colors.mutedForeground }]}>
+                ₹{product.price} per {product.unit} · {product.shopName}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { backgroundColor: colors.muted }]}>
+              <Feather name="x" size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { backgroundColor: colors.muted }]}>
-            <Feather name="x" size={16} color={colors.mutedForeground} />
-          </TouchableOpacity>
-        </View>
 
-        {/* Tabs */}
-        <View style={[styles.tabBar, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-          <TouchableOpacity
-            style={[styles.tab, { backgroundColor: tab === "weight" ? colors.primary : "transparent" }]}
-            onPress={() => setTab("weight")}
-          >
-            <Feather name="sliders" size={13} color={tab === "weight" ? "#fff" : colors.mutedForeground} />
-            <Text style={[styles.tabText, { color: tab === "weight" ? "#fff" : colors.mutedForeground }]}>
-              By {unitLabel === "volume" ? "Volume" : "Weight"}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, { backgroundColor: tab === "price" ? colors.primary : "transparent" }]}
-            onPress={() => setTab("price")}
-          >
-            <Feather name="tag" size={13} color={tab === "price" ? "#fff" : colors.mutedForeground} />
-            <Text style={[styles.tabText, { color: tab === "price" ? "#fff" : colors.mutedForeground }]}>
-              By Price
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {tab === "weight" ? (
-            <View style={styles.tabContent}>
-              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-                Select {unitLabel}
+          {/* Tabs */}
+          <View style={[styles.tabRow, { backgroundColor: colors.muted }]}>
+            <TouchableOpacity
+              style={[styles.tabBtn, { backgroundColor: tab === "weight" ? colors.primary : "transparent" }]}
+              onPress={() => setTab("weight")}
+            >
+              <Feather name="sliders" size={13} color={tab === "weight" ? "#fff" : colors.mutedForeground} />
+              <Text style={[styles.tabLabel, { color: tab === "weight" ? "#fff" : colors.mutedForeground }]}>
+                By {isLiquid ? "Volume" : "Weight"}
               </Text>
-              <View style={styles.optionsGrid}>
-                {weightOptions.map((opt) => {
-                  const isSelected = selectedWeight?.label === opt.label;
-                  const optPrice = Math.round(product.price * opt.multiplier);
-                  return (
-                    <TouchableOpacity
-                      key={opt.label}
-                      style={[
-                        styles.optionChip,
-                        {
-                          backgroundColor: isSelected ? colors.primary : colors.muted,
-                          borderColor: isSelected ? colors.primary : colors.border,
-                        },
-                      ]}
-                      onPress={() => {
-                        setSelectedWeight(opt);
-                        if (Platform.OS !== "web") Haptics.selectionAsync();
-                      }}
-                    >
-                      <Text style={[styles.optionLabel, { color: isSelected ? "#fff" : colors.foreground }]}>
-                        {opt.label}
-                      </Text>
-                      <Text style={[styles.optionSub, { color: isSelected ? "rgba(255,255,255,0.8)" : colors.mutedForeground }]}>
-                        ₹{optPrice}
-                      </Text>
-                      {isSelected && <Feather name="check" size={12} color="#fff" style={styles.checkIcon} />}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabBtn, { backgroundColor: tab === "price" ? colors.primary : "transparent" }]}
+              onPress={() => setTab("price")}
+            >
+              <Feather name="tag" size={13} color={tab === "price" ? "#fff" : colors.mutedForeground} />
+              <Text style={[styles.tabLabel, { color: tab === "price" ? "#fff" : colors.mutedForeground }]}>
+                By Price
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-              <View style={styles.qtyRow}>
-                <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Quantity</Text>
-                <View style={styles.qtyControls}>
-                  <TouchableOpacity
-                    style={[styles.qtyBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-                    onPress={() => setQty((q) => Math.max(1, q - 1))}
-                  >
-                    <Feather name="minus" size={15} color={colors.primary} />
-                  </TouchableOpacity>
-                  <Text style={[styles.qtyNum, { color: colors.foreground }]}>{qty}</Text>
-                  <TouchableOpacity
-                    style={[styles.qtyBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-                    onPress={() => setQty((q) => q + 1)}
-                  >
-                    <Feather name="plus" size={15} color={colors.primary} />
-                  </TouchableOpacity>
+          <View style={styles.body}>
+            {tab === "weight" ? (
+              <>
+                {/* Weight entry */}
+                <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+                  Enter {isLiquid ? "volume" : "weight"}
+                </Text>
+                <View style={styles.inputRow}>
+                  <View style={[styles.inputBox, { borderColor: colors.primary, backgroundColor: colors.muted }]}>
+                    <TextInput
+                      style={[styles.input, { color: colors.foreground }]}
+                      value={weightInput}
+                      onChangeText={setWeightInput}
+                      keyboardType="decimal-pad"
+                      placeholder="e.g. 500"
+                      placeholderTextColor={colors.mutedForeground}
+                      selectTextOnFocus
+                    />
+                  </View>
+                  {/* Unit selector */}
+                  <View style={styles.unitRow}>
+                    {unitOptions.map((u) => (
+                      <TouchableOpacity
+                        key={u}
+                        style={[
+                          styles.unitBtn,
+                          {
+                            backgroundColor: selectedUnit === u ? colors.primary : colors.muted,
+                            borderColor: selectedUnit === u ? colors.primary : colors.border,
+                          },
+                        ]}
+                        onPress={() => {
+                          setSelectedUnit(u);
+                          if (Platform.OS !== "web") Haptics.selectionAsync();
+                        }}
+                      >
+                        <Text style={[styles.unitLabel, { color: selectedUnit === u ? "#fff" : colors.foreground }]}>
+                          {u}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
-              </View>
 
-              <View style={[styles.totalRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-                <View>
-                  <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>
-                    {selectedWeight?.label} × {qty}
-                  </Text>
-                  <Text style={[styles.totalPrice, { color: colors.foreground }]}>₹{totalByWeight}</Text>
+                {/* Auto price result */}
+                <View style={[styles.resultCard, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "30" }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.resultLabel, { color: colors.mutedForeground }]}>
+                      Price for {weightValue > 0 ? `${weightInput} ${selectedUnit}` : "—"}
+                    </Text>
+                    <Text style={[styles.resultValue, { color: colors.primary }]}>
+                      {isWeightValid ? `₹${calculatedPriceFromWeight}` : "—"}
+                    </Text>
+                  </View>
+                  <Feather name="arrow-right" size={18} color={colors.primary} style={{ opacity: 0.5 }} />
                 </View>
+              </>
+            ) : (
+              <>
+                {/* Price entry */}
+                <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+                  Enter amount to spend
+                </Text>
+                <View style={styles.inputRow}>
+                  <View style={[styles.inputBoxWide, { borderColor: colors.primary, backgroundColor: colors.muted }]}>
+                    <Text style={[styles.rupeeSymbol, { color: colors.primary }]}>₹</Text>
+                    <TextInput
+                      style={[styles.input, { color: colors.foreground, flex: 1 }]}
+                      value={priceInput}
+                      onChangeText={setPriceInput}
+                      keyboardType="decimal-pad"
+                      placeholder="e.g. 50"
+                      placeholderTextColor={colors.mutedForeground}
+                      selectTextOnFocus
+                    />
+                  </View>
+                  {/* Unit selector for display */}
+                  <View style={styles.unitRow}>
+                    {unitOptions.map((u) => (
+                      <TouchableOpacity
+                        key={u}
+                        style={[
+                          styles.unitBtn,
+                          {
+                            backgroundColor: selectedUnit === u ? colors.primary : colors.muted,
+                            borderColor: selectedUnit === u ? colors.primary : colors.border,
+                          },
+                        ]}
+                        onPress={() => {
+                          setSelectedUnit(u);
+                          if (Platform.OS !== "web") Haptics.selectionAsync();
+                        }}
+                      >
+                        <Text style={[styles.unitLabel, { color: selectedUnit === u ? "#fff" : colors.foreground }]}>
+                          {u}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Auto weight result */}
+                <View style={[styles.resultCard, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "30" }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.resultLabel, { color: colors.mutedForeground }]}>
+                      You will get for ₹{priceValue > 0 ? priceValue : "—"}
+                    </Text>
+                    <Text style={[styles.resultValue, { color: colors.primary }]}>
+                      {isPriceValid ? formatWeightLabel(calculatedWeightFromPrice, selectedUnit) : "—"}
+                    </Text>
+                  </View>
+                  <Feather name="arrow-right" size={18} color={colors.primary} style={{ opacity: 0.5 }} />
+                </View>
+              </>
+            )}
+
+            {/* Quantity */}
+            <View style={styles.qtyRow}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Qty</Text>
+              <View style={styles.qtyCtrl}>
                 <TouchableOpacity
-                  style={[styles.addBtn, { backgroundColor: colors.primary }]}
-                  onPress={handleAddByWeight}
-                  disabled={!selectedWeight}
+                  style={[styles.qtyBtn, { borderColor: colors.border, backgroundColor: colors.muted }]}
+                  onPress={() => setQty((q) => Math.max(1, q - 1))}
                 >
-                  <Feather name="shopping-cart" size={16} color="#fff" />
-                  <Text style={styles.addBtnText}>{isEditing ? "Update Cart" : "Add to Cart"}</Text>
+                  <Feather name="minus" size={16} color={colors.primary} />
+                </TouchableOpacity>
+                <Text style={[styles.qtyNum, { color: colors.foreground }]}>{qty}</Text>
+                <TouchableOpacity
+                  style={[styles.qtyBtn, { borderColor: colors.border, backgroundColor: colors.muted }]}
+                  onPress={() => setQty((q) => q + 1)}
+                >
+                  <Feather name="plus" size={16} color={colors.primary} />
                 </TouchableOpacity>
               </View>
             </View>
-          ) : (
-            <View style={styles.tabContent}>
-              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-                Select amount to spend
-              </Text>
-              <View style={styles.optionsGrid}>
-                {PRICE_PRESETS.map((p) => {
-                  const isSelected = selectedPrice === p;
-                  const grams = (p / product.price) * 1000;
-                  const weightStr = formatWeight(grams);
-                  return (
-                    <TouchableOpacity
-                      key={p}
-                      style={[
-                        styles.optionChip,
-                        {
-                          backgroundColor: isSelected ? colors.primary : colors.muted,
-                          borderColor: isSelected ? colors.primary : colors.border,
-                        },
-                      ]}
-                      onPress={() => {
-                        setSelectedPrice(p);
-                        if (Platform.OS !== "web") Haptics.selectionAsync();
-                      }}
-                    >
-                      <Text style={[styles.optionLabel, { color: isSelected ? "#fff" : colors.foreground }]}>
-                        ₹{p}
-                      </Text>
-                      <Text style={[styles.optionSub, { color: isSelected ? "rgba(255,255,255,0.8)" : colors.mutedForeground }]}>
-                        ≈ {weightStr}
-                      </Text>
-                      {isSelected && <Feather name="check" size={12} color="#fff" style={styles.checkIcon} />}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
 
-              <View style={styles.qtyRow}>
-                <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Quantity</Text>
-                <View style={styles.qtyControls}>
-                  <TouchableOpacity
-                    style={[styles.qtyBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-                    onPress={() => setQty((q) => Math.max(1, q - 1))}
-                  >
-                    <Feather name="minus" size={15} color={colors.primary} />
-                  </TouchableOpacity>
-                  <Text style={[styles.qtyNum, { color: colors.foreground }]}>{qty}</Text>
-                  <TouchableOpacity
-                    style={[styles.qtyBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-                    onPress={() => setQty((q) => q + 1)}
-                  >
-                    <Feather name="plus" size={15} color={colors.primary} />
-                  </TouchableOpacity>
-                </View>
+            {/* Bottom total + button */}
+            <View style={[styles.footer, { borderTopColor: colors.border }]}>
+              <View>
+                <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>
+                  {tab === "weight"
+                    ? (isWeightValid ? `${weightInput} ${selectedUnit} × ${qty}` : "—")
+                    : (isPriceValid ? `₹${priceValue} × ${qty}` : "—")}
+                </Text>
+                <Text style={[styles.totalPrice, { color: colors.foreground }]}>
+                  {totalAmount > 0 ? `₹${totalAmount}` : "—"}
+                </Text>
               </View>
-
-              <View style={[styles.totalRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-                <View>
-                  <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>
-                    ≈ {formatWeight(effectivePriceWeightGrams)} × {qty}
-                  </Text>
-                  <Text style={[styles.totalPrice, { color: colors.foreground }]}>₹{totalByPrice}</Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.addBtn, { backgroundColor: colors.primary }]}
-                  onPress={handleAddByPrice}
-                  disabled={!selectedPrice}
-                >
-                  <Feather name="shopping-cart" size={16} color="#fff" />
-                  <Text style={styles.addBtnText}>{isEditing ? "Update Cart" : "Add to Cart"}</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[
+                  styles.addBtn,
+                  {
+                    backgroundColor: (tab === "weight" ? isWeightValid : isPriceValid) ? colors.primary : colors.muted,
+                  },
+                ]}
+                onPress={tab === "weight" ? handleAddByWeight : handleAddByPrice}
+                disabled={tab === "weight" ? !isWeightValid : !isPriceValid}
+              >
+                <Feather name="shopping-cart" size={16} color="#fff" />
+                <Text style={styles.addBtnText}>{isEditing ? "Update Cart" : "Add to Cart"}</Text>
+              </TouchableOpacity>
             </View>
-          )}
-        </ScrollView>
-      </View>
+          </View>
+        </Animated.View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  wrapper: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   sheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: 32,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    paddingBottom: Platform.OS === "ios" ? 34 : 24,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 20,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 24,
+    elevation: 24,
   },
   handle: {
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#ccc",
+    backgroundColor: "#D0D0D0",
     alignSelf: "center",
-    marginVertical: 12,
+    marginTop: 12,
+    marginBottom: 16,
   },
-  productInfo: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    gap: 10,
   },
   productName: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
   },
-  productShop: {
+  productMeta: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
     marginTop: 2,
@@ -349,81 +415,123 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  tabBar: {
+  tabRow: {
     flexDirection: "row",
-    marginHorizontal: 16,
+    marginHorizontal: 20,
     borderRadius: 14,
-    borderWidth: 1,
-    overflow: "hidden",
-    marginBottom: 4,
+    padding: 4,
+    gap: 4,
+    marginBottom: 20,
   },
-  tab: {
+  tabBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    paddingVertical: 11,
+    paddingVertical: 10,
+    borderRadius: 11,
   },
-  tabText: {
+  tabLabel: {
     fontSize: 13,
     fontWeight: "600",
     fontFamily: "Inter_600SemiBold",
   },
-  tabContent: {
-    padding: 16,
+  body: {
+    paddingHorizontal: 20,
     gap: 14,
   },
-  sectionLabel: {
+  fieldLabel: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
     fontWeight: "500",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    marginBottom: 2,
   },
-  optionsGrid: {
+  inputRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 10,
+    alignItems: "center",
   },
-  optionChip: {
-    width: "47%",
-    paddingVertical: 14,
-    paddingHorizontal: 12,
+  inputBox: {
+    flex: 1,
+    borderWidth: 2,
     borderRadius: 14,
-    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  inputBoxWide: {
+    flex: 1,
+    borderWidth: 2,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    position: "relative",
   },
-  optionLabel: {
-    fontSize: 16,
+  rupeeSymbol: {
+    fontSize: 18,
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
   },
-  optionSub: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-    fontWeight: "500",
+  input: {
+    fontSize: 20,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
+    padding: 0,
+    margin: 0,
   },
-  checkIcon: {
-    position: "absolute",
-    top: 6,
-    right: 8,
+  unitRow: {
+    flexDirection: "column",
+    gap: 6,
+  },
+  unitBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: "center",
+    minWidth: 60,
+  },
+  unitLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
+  },
+  resultCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+  },
+  resultLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+  },
+  resultValue: {
+    fontSize: 22,
+    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+    marginTop: 2,
   },
   qtyRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginTop: 4,
   },
-  qtyControls: {
+  qtyCtrl: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
   },
   qtyBtn: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: 11,
     borderWidth: 1.5,
     alignItems: "center",
@@ -436,21 +544,21 @@ const styles = StyleSheet.create({
     minWidth: 28,
     textAlign: "center",
   },
-  totalRow: {
+  footer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
+    borderTopWidth: 1,
+    paddingTop: 16,
     marginTop: 4,
   },
   totalLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "Inter_400Regular",
+    marginBottom: 2,
   },
   totalPrice: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "800",
     fontFamily: "Inter_700Bold",
   },
@@ -458,13 +566,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 13,
+    paddingHorizontal: 22,
+    paddingVertical: 14,
     borderRadius: 14,
   },
   addBtnText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
   },
