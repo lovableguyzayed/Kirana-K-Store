@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
@@ -43,8 +44,12 @@ export default function ShopDetailScreen() {
           <Feather name="arrow-left" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={styles.shopInfo}>
-          <View style={[styles.shopIcon, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
-            <Feather name="shopping-bag" size={28} color="#fff" />
+          <View style={styles.shopIcon}>
+            <Image
+              source={require("../../assets/images/icon.png")}
+              style={styles.shopIconImg}
+              resizeMode="contain"
+            />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.shopName}>{shop.name}</Text>
@@ -129,8 +134,14 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 14,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
+  },
+  shopIconImg: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
   },
   shopName: {
     color: "#fff",
