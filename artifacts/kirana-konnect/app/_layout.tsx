@@ -23,11 +23,13 @@ const queryClient = new QueryClient();
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
       <Stack.Screen name="splash" />
       <Stack.Screen name="login" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(shopkeeper)" />
       <Stack.Screen name="shop/[id]" />
+      <Stack.Screen name="product/[id]" />
       <Stack.Screen name="cart" />
       <Stack.Screen name="checkout" />
       <Stack.Screen name="tracking/[id]" />

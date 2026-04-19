@@ -11,10 +11,13 @@ export interface Product {
   shopName: string;
   category: string;
   stock: number;
+  description?: string;
+  isWeightBased?: boolean;
 }
 
 export interface CartItem extends Product {
   quantity: number;
+  selectedWeight?: string;
 }
 
 export interface Shop {
@@ -52,7 +55,7 @@ interface AppContextType {
   selectedShop: Shop | null;
   deliveryMode: "pickup" | "delivery";
   isShopkeeper: boolean;
-  addToCart: (product: Product) => void;
+  addToCart: (product: Product, opts?: { selectedWeight?: string; priceOverride?: number }) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -130,35 +133,150 @@ export const SHOPS = MOCK_SHOPS;
 
 const MOCK_PRODUCTS: Record<string, Product[]> = {
   s1: [
-    { id: "p1", name: "Amul Milk 500ml", price: 25, unit: "packet", shopId: "s1", shopName: "Gupta Kirana", category: "Dairy", stock: 50 },
-    { id: "p2", name: "Fortune Basmati Rice 5kg", price: 350, unit: "bag", shopId: "s1", shopName: "Gupta Kirana", category: "Grocery", stock: 20 },
-    { id: "p3", name: "Aashirvaad Atta 5kg", price: 260, unit: "bag", shopId: "s1", shopName: "Gupta Kirana", category: "Grocery", stock: 15 },
-    { id: "p4", name: "Britannia Bread", price: 40, unit: "pack", shopId: "s1", shopName: "Gupta Kirana", category: "Bakery", stock: 10 },
-    { id: "p5", name: "Parle-G Biscuits", price: 10, unit: "pack", shopId: "s1", shopName: "Gupta Kirana", category: "Snacks", stock: 100 },
-    { id: "p6", name: "Tata Tea Gold 250g", price: 120, unit: "box", shopId: "s1", shopName: "Gupta Kirana", category: "Beverages", stock: 30 },
-    { id: "p7", name: "Maggi Noodles 2-min", price: 14, unit: "pack", shopId: "s1", shopName: "Gupta Kirana", category: "Snacks", stock: 80 },
-    { id: "p8", name: "Surf Excel Matic 2kg", price: 310, unit: "box", shopId: "s1", shopName: "Gupta Kirana", category: "Grocery", stock: 8 },
+    {
+      id: "p1", name: "Amul Milk 500ml", price: 25, unit: "packet",
+      shopId: "s1", shopName: "Gupta Kirana", category: "Dairy", stock: 50,
+      description: "Fresh pasteurized toned milk by Amul. Rich in calcium and protein. Ideal for tea, coffee, and daily consumption. Keep refrigerated after opening.",
+    },
+    {
+      id: "p2", name: "Fortune Basmati Rice 5kg", price: 350, unit: "bag",
+      shopId: "s1", shopName: "Gupta Kirana", category: "Grocery", stock: 20,
+      description: "Premium aged basmati rice with extra-long grains and a distinctive aroma. Perfect for biryanis, pulaos, and everyday cooking. Each grain cooks to a light and fluffy texture.",
+    },
+    {
+      id: "p3", name: "Aashirvaad Atta 5kg", price: 260, unit: "bag",
+      shopId: "s1", shopName: "Gupta Kirana", category: "Grocery", stock: 15,
+      description: "Made from whole wheat grain, Aashirvaad Atta gives you soft, delicious rotis every time. Contains natural wheat bran and germ for better nutrition.",
+    },
+    {
+      id: "p4", name: "Britannia Bread", price: 40, unit: "pack",
+      shopId: "s1", shopName: "Gupta Kirana", category: "Bakery", stock: 10,
+      description: "Soft and fresh white bread loaf by Britannia. Made with enriched wheat flour, ideal for sandwiches and toast. No artificial preservatives.",
+    },
+    {
+      id: "p5", name: "Parle-G Biscuits", price: 10, unit: "pack",
+      shopId: "s1", shopName: "Gupta Kirana", category: "Snacks", stock: 100,
+      description: "India's most loved glucose biscuit. Crispy, light, and mildly sweet. Great with chai or as a quick snack for kids and adults alike.",
+    },
+    {
+      id: "p6", name: "Tata Tea Gold 250g", price: 120, unit: "box",
+      shopId: "s1", shopName: "Gupta Kirana", category: "Beverages", stock: 30,
+      description: "Tata Tea Gold is a blend of whole leaf tea from the finest gardens. Brews a strong, flavourful cup every morning. 250g pack — 100+ cups.",
+    },
+    {
+      id: "p7", name: "Maggi Noodles 2-min", price: 14, unit: "pack",
+      shopId: "s1", shopName: "Gupta Kirana", category: "Snacks", stock: 80,
+      description: "Quick, easy, and delicious — Maggi 2-Minute Noodles have been a beloved snack in Indian homes for decades. Ready in just 2 minutes.",
+    },
+    {
+      id: "p8", name: "Surf Excel Matic 2kg", price: 310, unit: "box",
+      shopId: "s1", shopName: "Gupta Kirana", category: "Grocery", stock: 8,
+      description: "Surf Excel Matic is specially designed for fully automatic washing machines. Gives brilliant clean in cold water with tough stain removal.",
+    },
   ],
   s2: [
-    { id: "p9", name: "Mother Dairy Curd 400g", price: 40, unit: "cup", shopId: "s2", shopName: "Sharma Store", category: "Dairy", stock: 25 },
-    { id: "p10", name: "Lay's Classic Chips", price: 20, unit: "pack", shopId: "s2", shopName: "Sharma Store", category: "Snacks", stock: 60 },
-    { id: "p11", name: "Hide & Seek Biscuits", price: 30, unit: "pack", shopId: "s2", shopName: "Sharma Store", category: "Snacks", stock: 40 },
-    { id: "p12", name: "Bread (Whole Wheat)", price: 45, unit: "loaf", shopId: "s2", shopName: "Sharma Store", category: "Bakery", stock: 12 },
+    {
+      id: "p9", name: "Mother Dairy Curd 400g", price: 40, unit: "cup",
+      shopId: "s2", shopName: "Sharma Store", category: "Dairy", stock: 25,
+      description: "Thick, creamy and fresh set curd by Mother Dairy. Made from pasteurized milk, it is naturally probiotic and great for digestion. Perfect with meals.",
+    },
+    {
+      id: "p10", name: "Lay's Classic Chips", price: 20, unit: "pack",
+      shopId: "s2", shopName: "Sharma Store", category: "Snacks", stock: 60,
+      description: "Light and crispy potato chips with just the right amount of salt. Lay's Classic is the go-to snack for parties, evenings, or anytime cravings.",
+    },
+    {
+      id: "p11", name: "Hide & Seek Biscuits", price: 30, unit: "pack",
+      shopId: "s2", shopName: "Sharma Store", category: "Snacks", stock: 40,
+      description: "Hide & Seek chocolate chip cookies by Parle — a premium cookie loaded with real chocolate chips. Crispy on the outside, soft on the inside.",
+    },
+    {
+      id: "p12", name: "Bread (Whole Wheat)", price: 45, unit: "loaf",
+      shopId: "s2", shopName: "Sharma Store", category: "Bakery", stock: 12,
+      description: "Freshly baked whole wheat bread loaf with natural grain goodness. Higher in fibre, great for sandwiches, toast, or healthy snacking.",
+    },
   ],
   s3: [
-    { id: "p13", name: "Tomatoes (1 kg)", price: 30, unit: "kg", shopId: "s3", shopName: "Mohan Kirana", category: "Vegetables", stock: 30 },
-    { id: "p14", name: "Onions (1 kg)", price: 25, unit: "kg", shopId: "s3", shopName: "Mohan Kirana", category: "Vegetables", stock: 40 },
-    { id: "p15", name: "Amul Butter 100g", price: 52, unit: "pack", shopId: "s3", shopName: "Mohan Kirana", category: "Dairy", stock: 20 },
+    {
+      id: "p13", name: "Tomatoes", price: 30, unit: "kg",
+      shopId: "s3", shopName: "Mohan Kirana", category: "Vegetables", stock: 30,
+      isWeightBased: true,
+      description: "Fresh, ripe tomatoes sourced daily from local farms. Rich in vitamins C and K, great for curries, salads, and cooking. Buy by weight.",
+    },
+    {
+      id: "p14", name: "Onions", price: 25, unit: "kg",
+      shopId: "s3", shopName: "Mohan Kirana", category: "Vegetables", stock: 40,
+      isWeightBased: true,
+      description: "Farm-fresh onions, a staple in every Indian kitchen. Used in curries, biryanis, and chutneys. Bought fresh daily. Price per kg.",
+    },
+    {
+      id: "p15", name: "Amul Butter 100g", price: 52, unit: "pack",
+      shopId: "s3", shopName: "Mohan Kirana", category: "Dairy", stock: 20,
+      description: "Amul pasteurized butter in a 100g pack. Made from fresh cream, rich in taste. Perfect for spreading on toast, cooking, and baking.",
+    },
   ],
   s4: [
-    { id: "p16", name: "Nestle Munch", price: 10, unit: "bar", shopId: "s4", shopName: "Patel General", category: "Snacks", stock: 50 },
-    { id: "p17", name: "Amul Cheese Slices", price: 85, unit: "pack", shopId: "s4", shopName: "Patel General", category: "Dairy", stock: 15 },
-    { id: "p18", name: "Cadbury Dairy Milk", price: 40, unit: "bar", shopId: "s4", shopName: "Patel General", category: "Snacks", stock: 30 },
-    { id: "p19", name: "Colgate MaxFresh 150g", price: 65, unit: "tube", shopId: "s4", shopName: "Patel General", category: "Grocery", stock: 20 },
+    {
+      id: "p16", name: "Nestle Munch", price: 10, unit: "bar",
+      shopId: "s4", shopName: "Patel General", category: "Snacks", stock: 50,
+      description: "Nestle Munch — a crispy wafer chocolate bar coated with delicious milk chocolate. Light, crunchy, and irresistibly tasty. Great for a quick treat.",
+    },
+    {
+      id: "p17", name: "Amul Cheese Slices", price: 85, unit: "pack",
+      shopId: "s4", shopName: "Patel General", category: "Dairy", stock: 15,
+      description: "Amul processed cheese slices — smooth, creamy, and easy to use. Perfect for sandwiches, burgers, and omelettes. Pack of 10 slices.",
+    },
+    {
+      id: "p18", name: "Cadbury Dairy Milk", price: 40, unit: "bar",
+      shopId: "s4", shopName: "Patel General", category: "Snacks", stock: 30,
+      description: "India's favourite chocolate — Cadbury Dairy Milk. Made with the finest cocoa and milk, it melts in your mouth. Perfect for gifting or indulging.",
+    },
+    {
+      id: "p19", name: "Colgate MaxFresh 150g", price: 65, unit: "tube",
+      shopId: "s4", shopName: "Patel General", category: "Grocery", stock: 20,
+      description: "Colgate MaxFresh toothpaste with cooling crystals and spearmint gel. Fights cavities, whitens teeth, and leaves a long-lasting fresh breath all day.",
+    },
   ],
 };
 
 export const getProductsByShop = (shopId: string) => MOCK_PRODUCTS[shopId] || [];
+
+export const getProductById = (productId: string): Product | undefined => {
+  for (const products of Object.values(MOCK_PRODUCTS)) {
+    const found = products.find((p) => p.id === productId);
+    if (found) return found;
+  }
+  return undefined;
+};
+
+export const isWeightBased = (product: Product): boolean =>
+  product.isWeightBased === true || ["kg", "g", "gram", "litre", "liter", "ml"].includes(product.unit.toLowerCase());
+
+export interface WeightOption {
+  label: string;
+  multiplier: number;
+}
+
+export const getWeightOptions = (unit: string): WeightOption[] => {
+  const u = unit.toLowerCase();
+  if (u === "kg" || u === "g" || u === "gram") {
+    return [
+      { label: "250 g", multiplier: 0.25 },
+      { label: "500 g", multiplier: 0.5 },
+      { label: "1 kg", multiplier: 1 },
+      { label: "2 kg", multiplier: 2 },
+    ];
+  }
+  if (u === "litre" || u === "liter" || u === "ml") {
+    return [
+      { label: "250 ml", multiplier: 0.25 },
+      { label: "500 ml", multiplier: 0.5 },
+      { label: "1 L", multiplier: 1 },
+      { label: "2 L", multiplier: 2 },
+    ];
+  }
+  return [];
+};
 
 const MOCK_ORDERS: Order[] = [
   {
@@ -224,7 +342,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (val) {
         const saved: Order[] = JSON.parse(val);
         const savedIds = new Set(saved.map((o) => o.id));
-        // Always ensure MOCK_ORDERS are present; user-placed orders take precedence
         const merged = [
           ...MOCK_ORDERS.filter((m) => !savedIds.has(m.id)),
           ...saved,
@@ -242,15 +359,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem("kk_orders", JSON.stringify(orders));
   }, [orders]);
 
-  const addToCart = useCallback((product: Product) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.id === product.id);
-      if (existing) {
-        return prev.map((i) => (i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i));
-      }
-      return [...prev, { ...product, quantity: 1 }];
-    });
-  }, []);
+  const addToCart = useCallback(
+    (product: Product, opts?: { selectedWeight?: string; priceOverride?: number }) => {
+      setCart((prev) => {
+        const existing = prev.find((i) => i.id === product.id);
+        if (existing) {
+          if (opts?.selectedWeight && opts.selectedWeight !== existing.selectedWeight) {
+            return prev.map((i) =>
+              i.id === product.id
+                ? { ...i, selectedWeight: opts.selectedWeight, price: opts.priceOverride ?? product.price, quantity: 1 }
+                : i
+            );
+          }
+          return prev.map((i) => (i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i));
+        }
+        return [
+          ...prev,
+          {
+            ...product,
+            price: opts?.priceOverride ?? product.price,
+            quantity: 1,
+            selectedWeight: opts?.selectedWeight,
+          },
+        ];
+      });
+    },
+    []
+  );
 
   const removeFromCart = useCallback((productId: string) => {
     setCart((prev) => prev.filter((i) => i.id !== productId));

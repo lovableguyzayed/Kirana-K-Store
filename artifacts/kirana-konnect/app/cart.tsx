@@ -94,7 +94,9 @@ export default function CartScreen() {
             </View>
             <View style={styles.itemInfo}>
               <Text style={[styles.itemName, { color: colors.foreground }]} numberOfLines={2}>{item.name}</Text>
-              <Text style={[styles.itemUnit, { color: colors.mutedForeground }]}>{item.unit}</Text>
+              <Text style={[styles.itemUnit, { color: colors.mutedForeground }]}>
+                {item.selectedWeight ? `${item.selectedWeight} × ${item.quantity}` : item.unit}
+              </Text>
               <Text style={[styles.itemPrice, { color: colors.foreground }]}>₹{item.price}</Text>
             </View>
             <View style={styles.itemActions}>
