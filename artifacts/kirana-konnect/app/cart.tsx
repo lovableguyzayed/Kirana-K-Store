@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
-import React from "react";
+import React, { useState } from "react";
 import {
   Platform,
   ScrollView,
@@ -13,13 +13,16 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useApp } from "@/context/AppContext";
+import AddToCartModal from "@/components/AddToCartModal";
+import { CartItem, getProductById, isWeightBased, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
 export default function CartScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { cart, removeFromCart, updateQuantity, cartTotal, cartCount, deliveryMode, setDeliveryMode } = useApp();
+  const [editingItem, setEditingItem] = useState<CartItem | null>(null);
+  const editProduct = editingItem ? (getProductById(editingItem.id) ?? null) : null;
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
@@ -87,43 +90,93 @@ export default function CartScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 200 }}>
-        {cart.map((item) => (
-          <View key={item.id} style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.itemIcon, { backgroundColor: colors.muted }]}>
-              <Feather name="package" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.itemInfo}>
-              <Text style={[styles.itemName, { color: colors.foreground }]} numberOfLines={2}>{item.name}</Text>
-              <Text style={[styles.itemUnit, { color: colors.mutedForeground }]}>
-                {item.selectedWeight ? `${item.selectedWeight} × ${item.quantity}` : item.unit}
-              </Text>
-              <Text style={[styles.itemPrice, { color: colors.foreground }]}>₹{item.price}</Text>
-            </View>
-            <View style={styles.itemActions}>
-              <View style={[styles.qtyControl, { borderColor: colors.primary }]}>
-                <TouchableOpacity
-                  style={styles.qtyBtn}
-                  onPress={() => { updateQuantity(item.id, item.quantity - 1); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-                >
-                  <Feather name="minus" size={14} color={colors.primary} />
-                </TouchableOpacity>
-                <Text style={[styles.qty, { color: colors.primary }]}>{item.quantity}</Text>
-                <TouchableOpacity
-                  style={styles.qtyBtn}
-                  onPress={() => { updateQuantity(item.id, item.quantity + 1); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-                >
-                  <Feather name="plus" size={14} color={colors.primary} />
-                </TouchableOpacity>
+        {cart.map((item) => {
+          const productData = getProductById(item.id) ?? null;
+          const isWeight = productData ? isWeightBased(productData) : !!item.selectedWeight;
+          return (
+            <View key={item.id} style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.itemIcon, { backgroundColor: colors.muted }]}>
+                <Feather name={isWeight ? "feather" : "package"} size={20} color={colors.primary} />
+                {isWeight && (
+                  <View style={[styles.weightBadge, { backgroundColor: colors.primary }]}>
+                    <Text style={styles.weightBadgeText}>kg</Text>
+                  </View>
+                )}
               </View>
-              <Text style={[styles.itemTotal, { color: colors.foreground }]}>₹{item.price * item.quantity}</Text>
-              <TouchableOpacity
-                onPress={() => { removeFromCart(item.id); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
-              >
-                <Feather name="trash-2" size={16} color={colors.destructive} />
-              </TouchableOpacity>
+              <View style={styles.itemInfo}>
+                <Text style={[styles.itemName, { color: colors.foreground }]} numberOfLines={2}>{item.name}</Text>
+                <Text style={[styles.itemUnit, { color: colors.mutedForeground }]}>
+                  {item.selectedWeight
+                    ? <Text style={{ color: colors.primary, fontWeight: "600" }}>{item.selectedWeight}</Text>
+                    : item.unit}
+                </Text>
+                <Text style={[styles.itemPrice, { color: colors.foreground }]}>
+                  ₹{item.price} {item.selectedWeight ? "per selection" : "each"}
+                </Text>
+              </View>
+              <View style={styles.itemActions}>
+                {isWeight ? (
+                  /* Weight-based: qty controls + edit button */
+                  <>
+                    <TouchableOpacity
+                      style={[styles.editBtn, { backgroundColor: colors.primary + "15", borderColor: colors.primary + "30" }]}
+                      onPress={() => setEditingItem(item)}
+                    >
+                      <Feather name="edit-2" size={13} color={colors.primary} />
+                      <Text style={[styles.editBtnText, { color: colors.primary }]}>Edit</Text>
+                    </TouchableOpacity>
+                    <View style={[styles.qtyControl, { borderColor: colors.primary }]}>
+                      <TouchableOpacity
+                        style={styles.qtyBtn}
+                        onPress={() => { updateQuantity(item.id, item.quantity - 1); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                      >
+                        <Feather name="minus" size={14} color={colors.primary} />
+                      </TouchableOpacity>
+                      <Text style={[styles.qty, { color: colors.primary }]}>{item.quantity}</Text>
+                      <TouchableOpacity
+                        style={styles.qtyBtn}
+                        onPress={() => { updateQuantity(item.id, item.quantity + 1); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                      >
+                        <Feather name="plus" size={14} color={colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={[styles.itemTotal, { color: colors.foreground }]}>₹{item.price * item.quantity}</Text>
+                    <TouchableOpacity
+                      onPress={() => { removeFromCart(item.id); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+                    >
+                      <Feather name="trash-2" size={16} color={colors.destructive} />
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  /* Unit-based: normal +/- */
+                  <>
+                    <View style={[styles.qtyControl, { borderColor: colors.primary }]}>
+                      <TouchableOpacity
+                        style={styles.qtyBtn}
+                        onPress={() => { updateQuantity(item.id, item.quantity - 1); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                      >
+                        <Feather name="minus" size={14} color={colors.primary} />
+                      </TouchableOpacity>
+                      <Text style={[styles.qty, { color: colors.primary }]}>{item.quantity}</Text>
+                      <TouchableOpacity
+                        style={styles.qtyBtn}
+                        onPress={() => { updateQuantity(item.id, item.quantity + 1); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                      >
+                        <Feather name="plus" size={14} color={colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={[styles.itemTotal, { color: colors.foreground }]}>₹{item.price * item.quantity}</Text>
+                    <TouchableOpacity
+                      onPress={() => { removeFromCart(item.id); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+                    >
+                      <Feather name="trash-2" size={16} color={colors.destructive} />
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
 
         <View style={[styles.summary, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.summaryTitle, { color: colors.foreground }]}>Price Breakdown</Text>
@@ -163,6 +216,13 @@ export default function CartScreen() {
           <Feather name="arrow-right" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      <AddToCartModal
+        product={editProduct || null}
+        cartItem={editingItem || undefined}
+        visible={!!editingItem && !!editProduct}
+        onClose={() => setEditingItem(null)}
+      />
     </View>
   );
 }
@@ -272,6 +332,35 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    position: "relative",
+  },
+  weightBadge: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 5,
+  },
+  weightBadgeText: {
+    color: "#fff",
+    fontSize: 8,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
+  },
+  editBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  editBtnText: {
+    fontSize: 11,
+    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold",
   },
   itemInfo: {
     flex: 1,
