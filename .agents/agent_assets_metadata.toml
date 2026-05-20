@@ -35,3 +35,9 @@ id = "dD_feYHU9AIiB1Guzpyt5"
 uri = "file://01_DISCOVERY.md"
 type = "text"
 title = "Phase 1 — Deep Discovery & Research"
+
+[[outputs]]
+id = "x2iW3kp7fxXOOhx1Hty6z"
+uri = "file://02_ANALYSIS.md"
+type = "text"
+title = "Phase 2 — Problem Analysis & Prioritization"
