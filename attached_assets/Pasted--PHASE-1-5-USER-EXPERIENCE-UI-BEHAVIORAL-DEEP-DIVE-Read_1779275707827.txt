@@ -1,0 +1,103 @@
+## 👤 PHASE 1.5 — USER EXPERIENCE & UI BEHAVIORAL DEEP-DIVE (Read-only)
+
+**Goal:** Experience the application through the eyes of a real user. Understand how the app behaves, what users expect, what's missing in the UI that breaks user experience, and which elements should be added to make the app feel production-grade.
+
+Do the following, in order:
+
+1. **User Persona Mapping**
+   - Identify all user types this app serves (e.g., new customer, returning customer, admin, vendor, guest).
+   - For each persona, write: their goal, their context (mobile/desktop, fast/slow network), and their technical comfort level.
+   - List the top 3-5 tasks each persona will try to accomplish.
+
+2. **Use Case Walkthrough (Simulated User Journey)**
+   - For each persona, simulate a complete end-to-end journey through the app, screen by screen.
+   - At every step, record:
+     - What the user sees
+     - What the user is *expected* to do
+     - What actually happens when they do it
+     - Any friction, confusion, or dead-ends encountered
+   - Example: "User opens app → sees splash for 4 seconds (too long) → lands on home → no clear CTA → user doesn't know where to tap next."
+
+3. **UI Element Inventory**
+   - Go screen-by-screen and catalog every UI element present: buttons, inputs, cards, modals, lists, tabs, headers, footers, icons.
+   - For each screen, note: total elements, primary CTA, secondary actions, navigation pattern.
+
+4. **Behavior Audit — Expected vs Actual**
+   - For every interactive element, document:
+     - **Expected behavior** (what a user would intuitively assume)
+     - **Actual behavior** (what the code does)
+     - **Gap** (if any)
+   - Specifically check: button tap feedback, form submission states, error recovery, back navigation, scroll position retention, deep linking.
+
+5. **Missing UI States**
+   Check every screen and list which of these states are missing:
+   - ⏳ Loading state (skeleton / spinner / shimmer)
+   - 📭 Empty state (no data, with helpful message + CTA)
+   - ⚠️ Error state (with retry option)
+   - ✅ Success state (confirmation, toast, animation)
+   - 🔌 Offline / no-internet state
+   - 🚫 Permission-denied state (camera, location, notifications)
+   - 🔒 Logged-out / session-expired state
+
+6. **Missing Feedback Mechanisms**
+   - Toasts / snackbars after actions (add to cart, save, delete, submit)
+   - Loading indicators on buttons during async actions
+   - Confirmation dialogs before destructive actions (delete, logout, cancel order)
+   - Success animations / haptic feedback on key milestones
+   - Inline form validation (real-time, not just on submit)
+
+7. **Missing Navigation Aids**
+   - Back button on every non-root screen
+   - Breadcrumbs / clear screen titles
+   - Search functionality where lists are long
+   - Filters / sort options where data is dense
+   - Bottom nav / hamburger menu consistency
+   - Deep linking support
+
+8. **Visual Consistency Issues**
+   - Inconsistent spacing (padding, margins) across screens
+   - Typography drift (different font sizes/weights for same hierarchy)
+   - Color usage that breaks the design system
+   - Misaligned elements, uneven gaps
+   - Different button styles for same action across screens
+   - Icon style inconsistencies (outline mixed with filled, different sizes)
+
+9. **Microinteractions & Polish**
+   - Tap feedback (ripple / scale / opacity change)
+   - Smooth transitions between screens (no abrupt jumps)
+   - Pull-to-refresh on list screens
+   - Swipe gestures where appropriate (delete, mark as read)
+   - Animated state changes (cart count, like button)
+   - Keyboard handling (avoid covering inputs, auto-dismiss on tap outside)
+
+10. **Accessibility & Mobile-Specific Checks**
+    - Touch targets are minimum 44x44 px
+    - Text is readable without zooming (min 14px body)
+    - Color contrast meets WCAG AA
+    - App works in both portrait and landscape
+    - Safe area handled (notch, home indicator)
+    - Works on small screens (iPhone SE size) and large (tablet)
+
+11. **First-Time User Experience (FTUE)**
+    - Onboarding flow present? Clear value proposition?
+    - Permissions requested in context, not upfront dump?
+    - Empty home screen has guidance ("Add your first item")?
+    - Tooltips / coach marks for non-obvious features?
+
+12. **Recommendations**
+    For every gap found, provide:
+    - **Issue:** Short description
+    - **Screen / File:** Where it occurs
+    - **Severity:** Critical / High / Medium / Low
+    - **Recommended fix:** Specific UI element or behavior to add
+    - **Reference:** Link to a similar pattern from a well-known app if applicable (e.g., "Like Zomato's restaurant card swipe", "Like Instagram's pull-to-refresh")
+
+**Output File:** Save all findings as `01b_UX_BEHAVIOR_AUDIT.md` in the project root, organized by:
+- Section A: Persona & Journey findings
+- Section B: Missing states & feedback
+- Section C: Visual & consistency issues
+- Section D: Prioritized list of UI elements to add/fix
+
+🛑 **STOP after this phase.** Show me the file. Wait for me to say "proceed to Phase 2".
+
+> Note: All gaps and additions identified here must be merged into the Phase 4 Action Plan as separate work packages tagged `[UX]` so they get prioritized along with other fixes.

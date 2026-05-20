@@ -53,3 +53,9 @@ id = "r7EC11dqEuV6OgKJf2zG-"
 uri = "file://04_IMPLEMENTATION_PLAN.md"
 type = "text"
 title = "Phase 4 — Implementation Plan & Task Breakdown"
+
+[[outputs]]
+id = "ISVqfzJbTdzT3hTM0YLBE"
+uri = "file://01b_UX_BEHAVIOR_AUDIT.md"
+type = "text"
+title = "Phase 1.5 — UX & Behavioral Deep-Dive Audit"
