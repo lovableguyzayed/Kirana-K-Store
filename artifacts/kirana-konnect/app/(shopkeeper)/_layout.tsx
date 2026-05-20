@@ -1,12 +1,13 @@
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Tabs } from "expo-router";
+import { Tabs, router } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { Feather } from "@expo/vector-icons";
 import { SymbolView } from "expo-symbols";
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
+import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
 function NativeTabLayout() {
@@ -28,7 +29,7 @@ function NativeTabLayout() {
   );
 }
 
-function ClassicTabLayout() {
+function ClassicTabLayout({ pendingCount }: { pendingCount: number }) {
   const colors = useColors();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -69,6 +70,7 @@ function ClassicTabLayout() {
         name="orders"
         options={{
           title: "Orders",
+          tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
           tabBarIcon: ({ color }) =>
             isIOS ? <SymbolView name="list.bullet" tintColor={color} size={22} /> : <Feather name="list" size={22} color={color} />,
         }}
@@ -86,6 +88,20 @@ function ClassicTabLayout() {
 }
 
 export default function ShopkeeperLayout() {
+  const { currentUser, orders } = useApp();
+
+  const shopId = currentUser?.shopId ?? "s1";
+  const pendingCount = useMemo(
+    () => orders.filter((o) => o.shopId === shopId && o.status === "pending").length,
+    [orders, shopId]
+  );
+
+  useEffect(() => {
+    if (currentUser !== null && currentUser?.role !== "shopkeeper") {
+      router.replace("/login");
+    }
+  }, [currentUser]);
+
   if (isLiquidGlassAvailable()) return <NativeTabLayout />;
-  return <ClassicTabLayout />;
+  return <ClassicTabLayout pendingCount={pendingCount} />;
 }

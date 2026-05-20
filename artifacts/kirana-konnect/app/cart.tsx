@@ -393,8 +393,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   qtyBtn: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   qty: {
     fontSize: 13,

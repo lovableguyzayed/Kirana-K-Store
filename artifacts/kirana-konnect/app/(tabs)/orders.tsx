@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React from "react";
-import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Order, SHOPS, useApp } from "@/context/AppContext";
@@ -29,8 +29,11 @@ export default function OrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { orders, cart, addToCart, clearCart, setSelectedShop } = useApp();
+  const [refreshing, setRefreshing] = useState(false);
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
+
+  const onRefresh = () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 800); };
 
   const handleReorder = (order: Order) => {
     const shop = SHOPS.find((s) => s.id === order.shopId);
@@ -79,7 +82,10 @@ export default function OrdersScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 100 }}>
+        <ScrollView
+          contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 100 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
+        >
           {orders.map((order) => (
             <View key={order.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.cardHeader}>

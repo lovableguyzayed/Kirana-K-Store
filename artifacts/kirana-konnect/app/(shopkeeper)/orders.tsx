@@ -1,8 +1,9 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -36,6 +37,9 @@ export default function ShopkeeperOrders() {
     [myOrders]
   );
 
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 800); };
+
   const handleAccept = (order: Order) => {
     updateOrderStatus(order.id, "accepted");
     if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -52,6 +56,10 @@ export default function ShopkeeperOrders() {
     updateOrderStatus(order.id, order.mode === "delivery" ? "out_for_delivery" : "delivered");
     if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
+  const handleDeliver = (order: Order) => {
+    updateOrderStatus(order.id, "delivered");
+    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -64,7 +72,10 @@ export default function ShopkeeperOrders() {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: bottomPad + 16 }}>
+      <ScrollView
+        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: bottomPad + 16 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
+      >
         {newOrders.length > 0 && (
           <View>
             <Text style={[styles.sectionLabel, { color: colors.foreground }]}>New Orders</Text>
@@ -157,10 +168,15 @@ export default function ShopkeeperOrders() {
                     </TouchableOpacity>
                   )}
                   {order.status === "out_for_delivery" && (
-                    <View style={[styles.statusBadge, { backgroundColor: "#0097A720" }]}>
-                      <Feather name="truck" size={14} color="#0097A7" />
-                      <Text style={[styles.statusBadgeText, { color: "#0097A7" }]}>Out for Delivery</Text>
-                    </View>
+                    <TouchableOpacity
+                      style={[styles.statusBtn, { backgroundColor: colors.success }]}
+                      onPress={() => handleDeliver(order)}
+                      accessibilityLabel="Mark as delivered"
+                      accessibilityRole="button"
+                    >
+                      <Feather name="check-circle" size={14} color="#fff" />
+                      <Text style={styles.statusBtnText}>Mark Delivered</Text>
+                    </TouchableOpacity>
                   )}
                 </View>
               </View>

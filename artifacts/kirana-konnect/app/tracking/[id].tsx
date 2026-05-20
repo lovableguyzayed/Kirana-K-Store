@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useMemo, useState } from "react";
 import {
   Animated,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -268,6 +269,18 @@ export default function TrackingScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: bottomPad + 20 }}>
+        {/* Order Delivered Celebration Banner */}
+        {isDelivered && (
+          <View style={[styles.deliveredBanner, { backgroundColor: colors.primary }]}>
+            <Text style={styles.deliveredEmoji}>🎉</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.deliveredTitle}>Order Delivered!</Text>
+              <Text style={styles.deliveredSub}>Thank you for shopping with us</Text>
+            </View>
+            <Feather name="check-circle" size={26} color="#fff" />
+          </View>
+        )}
+
         {/* Order Header */}
         <View style={[styles.orderHeader, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "30" }]}>
           <Feather name="shopping-bag" size={24} color={colors.primary} />
@@ -309,10 +322,20 @@ export default function TrackingScreen() {
                 <Text style={[styles.riderVehicle, { color: colors.mutedForeground }]}>{RIDER.vehicle}</Text>
               </View>
               <View style={styles.riderActions}>
-                <TouchableOpacity style={[styles.riderActionBtn, { backgroundColor: colors.primary + "15", borderColor: colors.primary + "30" }]}>
+                <TouchableOpacity
+                  style={[styles.riderActionBtn, { backgroundColor: colors.primary + "15", borderColor: colors.primary + "30" }]}
+                  onPress={() => Linking.openURL(`tel:${RIDER.phone.replace(/\s+/g, "")}`)}
+                  accessibilityLabel={`Call ${RIDER.name}`}
+                  accessibilityRole="button"
+                >
                   <Feather name="phone" size={16} color={colors.primary} />
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.riderActionBtn, { backgroundColor: colors.primary + "15", borderColor: colors.primary + "30" }]}>
+                <TouchableOpacity
+                  style={[styles.riderActionBtn, { backgroundColor: colors.primary + "15", borderColor: colors.primary + "30" }]}
+                  onPress={() => Linking.openURL(`sms:${RIDER.phone.replace(/\s+/g, "")}`)}
+                  accessibilityLabel={`Message ${RIDER.name}`}
+                  accessibilityRole="button"
+                >
                   <Feather name="message-circle" size={16} color={colors.primary} />
                 </TouchableOpacity>
               </View>
@@ -435,6 +458,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 14,
     borderBottomWidth: 1,
+  },
+  deliveredBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 16,
+    borderRadius: 16,
+  },
+  deliveredEmoji: { fontSize: 28 },
+  deliveredTitle: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
+  },
+  deliveredSub: {
+    color: "#fff",
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    opacity: 0.88,
+    marginTop: 2,
   },
   backBtn: {
     width: 36,

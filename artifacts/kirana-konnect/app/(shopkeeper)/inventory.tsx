@@ -2,10 +2,12 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useMemo, useState } from "react";
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -113,9 +115,22 @@ export default function InventoryScreen() {
     setShowModal(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    deleteProduct(shopId, id);
+  const handleDelete = (id: string, name: string) => {
+    Alert.alert(
+      "Delete Product",
+      `Are you sure you want to delete "${name}"? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            deleteProduct(shopId, id);
+          },
+        },
+      ]
+    );
   };
 
   const handleToggleActive = (id: string) => {
@@ -268,7 +283,7 @@ export default function InventoryScreen() {
                   <Feather name="edit-2" size={15} color={colors.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => handleDelete(item.id)}
+                  onPress={() => handleDelete(item.id, item.name)}
                   style={[styles.actionIcon, { backgroundColor: colors.destructive + "15" }]}
                   accessibilityLabel={`Delete ${item.name}`}
                   accessibilityRole="button"
@@ -282,7 +297,8 @@ export default function InventoryScreen() {
       />
 
       <Modal visible={showModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowModal(false)}>
+          <View style={{ width: "100%" }} onStartShouldSetResponder={() => true}>
           <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ width: "100%" }}>
             <ScrollView style={[styles.modalContent, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
               <View style={styles.modalHandle} />
@@ -427,7 +443,8 @@ export default function InventoryScreen() {
               </TouchableOpacity>
             </ScrollView>
           </KeyboardAvoidingView>
-        </View>
+          </View>
+        </Pressable>
       </Modal>
     </View>
   );

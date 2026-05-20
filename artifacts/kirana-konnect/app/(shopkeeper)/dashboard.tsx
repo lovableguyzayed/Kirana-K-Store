@@ -1,8 +1,10 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
+  Alert,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -48,9 +50,25 @@ export default function ShopkeeperDashboard() {
     [todaysOrders]
   );
 
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 800); };
+
   const handleLogout = () => {
-    setCurrentUser(null);
-    router.replace("/login");
+    Alert.alert(
+      "Log Out",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Log Out",
+          style: "destructive",
+          onPress: () => {
+            setCurrentUser(null);
+            router.replace("/login");
+          },
+        },
+      ]
+    );
   };
 
   const STAT_CARDS = [
@@ -92,7 +110,10 @@ export default function ShopkeeperDashboard() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: bottomPad + 16 }}>
+      <ScrollView
+        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: bottomPad + 16 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
+      >
         <View style={styles.statsRow}>
           {STAT_CARDS.map((stat) => (
             <View

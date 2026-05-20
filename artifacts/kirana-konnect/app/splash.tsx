@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import React, { useEffect, useRef } from "react";
 import { Animated, Image, StyleSheet, Text, View } from "react-native";
@@ -32,7 +33,23 @@ export default function SplashScreen() {
     const b3 = bounceDot(dot3, 300);
     b1.start(); b2.start(); b3.start();
 
-    const t = setTimeout(() => router.replace("/login"), 2800);
+    const t = setTimeout(async () => {
+      try {
+        const raw = await AsyncStorage.getItem("kk_user");
+        if (raw) {
+          const user = JSON.parse(raw);
+          if (user?.role === "shopkeeper") {
+            router.replace("/(shopkeeper)/dashboard");
+          } else {
+            router.replace("/(tabs)");
+          }
+        } else {
+          router.replace("/login");
+        }
+      } catch {
+        router.replace("/login");
+      }
+    }, 2800);
     return () => {
       clearTimeout(t);
       b1.stop(); b2.stop(); b3.stop();
