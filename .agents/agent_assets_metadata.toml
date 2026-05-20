@@ -47,3 +47,9 @@ id = "2jsiOHAUTZO5fbfi-6kjw"
 uri = "file://03_ARCHITECTURE.md"
 type = "text"
 title = "Phase 3 — Solution Architecture"
+
+[[outputs]]
+id = "r7EC11dqEuV6OgKJf2zG-"
+uri = "file://04_IMPLEMENTATION_PLAN.md"
+type = "text"
+title = "Phase 4 — Implementation Plan & Task Breakdown"
