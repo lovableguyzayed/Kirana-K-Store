@@ -17,12 +17,24 @@ import { useColors } from "@/hooks/useColors";
 export default function ShopkeeperOrders() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, updateOrderStatus } = useApp();
+  const { orders, updateOrderStatus, currentUser } = useApp();
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 84 : 0);
 
-  const newOrders = useMemo(() => orders.filter((o) => o.status === "pending"), [orders]);
-  const activeOrders = useMemo(() => orders.filter((o) => ["accepted", "packed", "out_for_delivery"].includes(o.status)), [orders]);
+  const shopId = currentUser?.shopId ?? "s1";
+
+  const myOrders = useMemo(
+    () => orders.filter((o) => o.shopId === shopId),
+    [orders, shopId]
+  );
+  const newOrders = useMemo(
+    () => myOrders.filter((o) => o.status === "pending"),
+    [myOrders]
+  );
+  const activeOrders = useMemo(
+    () => myOrders.filter((o) => ["accepted", "packed", "out_for_delivery"].includes(o.status)),
+    [myOrders]
+  );
 
   const handleAccept = (order: Order) => {
     updateOrderStatus(order.id, "accepted");
@@ -84,6 +96,8 @@ export default function ShopkeeperOrders() {
                   <TouchableOpacity
                     style={[styles.rejectBtn, { borderColor: colors.destructive }]}
                     onPress={() => handleReject(order)}
+                    accessibilityLabel="Reject order"
+                    accessibilityRole="button"
                   >
                     <Feather name="x" size={16} color={colors.destructive} />
                     <Text style={[styles.rejectText, { color: colors.destructive }]}>Reject</Text>
@@ -91,6 +105,8 @@ export default function ShopkeeperOrders() {
                   <TouchableOpacity
                     style={[styles.acceptBtn, { backgroundColor: colors.primary }]}
                     onPress={() => handleAccept(order)}
+                    accessibilityLabel="Accept order"
+                    accessibilityRole="button"
                   >
                     <Feather name="check" size={16} color="#fff" />
                     <Text style={styles.acceptText}>Accept</Text>
@@ -120,6 +136,8 @@ export default function ShopkeeperOrders() {
                     <TouchableOpacity
                       style={[styles.statusBtn, { backgroundColor: "#7B1FA2" }]}
                       onPress={() => handlePack(order)}
+                      accessibilityLabel="Mark as packed"
+                      accessibilityRole="button"
                     >
                       <Feather name="package" size={14} color="#fff" />
                       <Text style={styles.statusBtnText}>Mark as Packed</Text>
@@ -129,6 +147,8 @@ export default function ShopkeeperOrders() {
                     <TouchableOpacity
                       style={[styles.statusBtn, { backgroundColor: colors.success }]}
                       onPress={() => handleReady(order)}
+                      accessibilityLabel={order.mode === "delivery" ? "Mark as out for delivery" : "Mark as ready for pickup"}
+                      accessibilityRole="button"
                     >
                       <Feather name={order.mode === "delivery" ? "truck" : "check-circle"} size={14} color="#fff" />
                       <Text style={styles.statusBtnText}>
@@ -169,28 +189,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: "800",
-    fontFamily: "Inter_700Bold",
-  },
-  newBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  newBadgeText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
-  sectionLabel: {
-    fontSize: 16,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-    marginBottom: 10,
-  },
+  title: { fontSize: 22, fontWeight: "800", fontFamily: "Inter_700Bold" },
+  newBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  newBadgeText: { color: "#fff", fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  sectionLabel: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", marginBottom: 10 },
   orderCard: {
     borderRadius: 16,
     borderWidth: 1,
@@ -203,46 +205,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  orderHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  orderId: {
-    fontSize: 14,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
-  orderTime: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
-  },
-  orderTotal: {
-    fontSize: 17,
-    fontWeight: "800",
-    fontFamily: "Inter_700Bold",
-  },
+  orderHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  orderId: { fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  orderTime: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  orderTotal: { fontSize: 17, fontWeight: "800", fontFamily: "Inter_700Bold" },
   itemsList: { gap: 3 },
-  itemText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
-  modeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    padding: 8,
-  },
-  modeText: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    fontWeight: "500",
-  },
-  actionBtns: {
-    flexDirection: "row",
-    gap: 10,
-  },
+  itemText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  modeRow: { flexDirection: "row", alignItems: "center", gap: 6, padding: 8 },
+  modeText: { fontSize: 12, fontFamily: "Inter_500Medium", fontWeight: "500" },
+  actionBtns: { flexDirection: "row", gap: 10 },
   rejectBtn: {
     flex: 1,
     flexDirection: "row",
@@ -253,11 +224,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1.5,
   },
-  rejectText: {
-    fontSize: 14,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
+  rejectText: { fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold" },
   acceptBtn: {
     flex: 2,
     flexDirection: "row",
@@ -267,12 +234,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
   },
-  acceptText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
+  acceptText: { color: "#fff", fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold" },
   statusRow: { flexDirection: "row" },
   statusBtn: {
     flexDirection: "row",
@@ -282,12 +244,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
   },
-  statusBtnText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
+  statusBtnText: { color: "#fff", fontSize: 13, fontWeight: "700", fontFamily: "Inter_700Bold" },
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -296,24 +253,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
   },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-  },
-  empty: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 60,
-    gap: 10,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
-  emptyText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
+  statusBadgeText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  empty: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },
+  emptyTitle: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  emptyText: { fontSize: 13, fontFamily: "Inter_400Regular" },
 });

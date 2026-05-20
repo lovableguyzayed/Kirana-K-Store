@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -21,14 +21,33 @@ import { useColors } from "@/hooks/useColors";
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setIsShopkeeper } = useApp();
+  const { setCurrentUser } = useApp();
 
   const [phone, setPhone] = useState("");
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [isShopkeeperMode, setIsShopkeeperMode] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(30);
+  const [canResend, setCanResend] = useState(false);
   const otpRefs = useRef<(TextInput | null)[]>([]);
+
+  useEffect(() => {
+    if (step !== "otp") return;
+    setResendCountdown(30);
+    setCanResend(false);
+    const interval = setInterval(() => {
+      setResendCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setCanResend(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [step]);
 
   const handleSendOtp = () => {
     if (phone.length < 10) return;
@@ -55,13 +74,24 @@ export default function LoginScreen() {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setTimeout(() => {
       setLoading(false);
-      setIsShopkeeper(isShopkeeperMode);
       if (isShopkeeperMode) {
+        setCurrentUser({
+          phone,
+          role: "shopkeeper",
+          shopId: "s1",
+          shopName: "Gupta Kirana Store",
+          ownerName: "Ramesh Gupta",
+        });
         router.replace("/(shopkeeper)/dashboard");
       } else {
+        setCurrentUser({ phone, role: "customer" });
         router.replace("/(tabs)");
       }
     }, 800);
+  };
+
+  const handleResend = () => {
+    handleSendOtp();
   };
 
   return (
@@ -105,6 +135,8 @@ export default function LoginScreen() {
                   onChangeText={setPhone}
                   returnKeyType="done"
                   onSubmitEditing={handleSendOtp}
+                  accessibilityLabel="Mobile number"
+                  accessibilityHint="Enter your 10-digit mobile number"
                 />
               </View>
               <TouchableOpacity
@@ -115,6 +147,8 @@ export default function LoginScreen() {
                 onPress={handleSendOtp}
                 disabled={phone.length < 10 || loading}
                 activeOpacity={0.85}
+                accessibilityLabel="Send OTP"
+                accessibilityRole="button"
               >
                 {loading ? (
                   <ActivityIndicator color="#fff" />
@@ -150,10 +184,21 @@ export default function LoginScreen() {
                         otpRefs.current[idx - 1]?.focus();
                       }
                     }}
+                    accessibilityLabel={`OTP digit ${idx + 1}`}
                   />
                 ))}
               </View>
-              <Text style={[styles.resend, { color: colors.primary }]}>Resend OTP in 30s</Text>
+
+              {canResend ? (
+                <TouchableOpacity onPress={handleResend} accessibilityRole="button" accessibilityLabel="Resend OTP">
+                  <Text style={[styles.resend, { color: colors.primary }]}>Resend OTP</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={[styles.resend, { color: colors.mutedForeground }]}>
+                  Resend OTP in {resendCountdown}s
+                </Text>
+              )}
+
               <TouchableOpacity
                 style={[
                   styles.primaryBtn,
@@ -162,6 +207,8 @@ export default function LoginScreen() {
                 onPress={handleVerify}
                 disabled={otp.join("").length < 6 || loading}
                 activeOpacity={0.85}
+                accessibilityLabel="Verify and login"
+                accessibilityRole="button"
               >
                 {loading ? (
                   <ActivityIndicator color="#fff" />
@@ -185,6 +232,8 @@ export default function LoginScreen() {
             { backgroundColor: isShopkeeperMode ? colors.accent + "22" : colors.muted, borderColor: isShopkeeperMode ? colors.accent : colors.border },
           ]}
           onPress={() => setIsShopkeeperMode(!isShopkeeperMode)}
+          accessibilityLabel={isShopkeeperMode ? "Switch to customer mode" : "Login as shopkeeper"}
+          accessibilityRole="button"
         >
           <Feather name="briefcase" size={15} color={isShopkeeperMode ? colors.accent : colors.mutedForeground} />
           <Text style={[styles.toggleText, { color: isShopkeeperMode ? colors.accent : colors.mutedForeground }]}>

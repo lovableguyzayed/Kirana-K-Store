@@ -14,17 +14,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import CartBar from "@/components/CartBar";
 import ProductCard from "@/components/ProductCard";
-import { SHOPS, getProductsByShop, useApp } from "@/context/AppContext";
+import { SHOPS, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { formatShopHours, isShopCurrentlyOpen } from "@/utils/shopUtils";
 
 export default function ShopDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { cart } = useApp();
+  const { cart, shopProducts } = useApp();
 
   const shop = useMemo(() => SHOPS.find((s) => s.id === id), [id]);
-  const products = useMemo(() => getProductsByShop(id || ""), [id]);
+  const products = useMemo(
+    () => (shopProducts[id ?? ""] ?? []).filter((p) => p.isActive !== false),
+    [shopProducts, id]
+  );
   const categories = useMemo(() => ["All", ...new Set(products.map((p) => p.category))], [products]);
   const [activeCategory, setActiveCategory] = useState("All");
 
@@ -37,10 +41,17 @@ export default function ShopDetailScreen() {
 
   if (!shop) return null;
 
+  const shopOpen = isShopCurrentlyOpen(shop);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.shopHeader, { backgroundColor: colors.primary, paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16) }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
+        >
           <Feather name="arrow-left" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={styles.shopInfo}>
@@ -60,13 +71,23 @@ export default function ShopDetailScreen() {
               <Text style={styles.shopDot}>·</Text>
               <Feather name="map-pin" size={13} color="rgba(255,255,255,0.8)" />
               <Text style={styles.shopDist}>{shop.distance}</Text>
-              <View style={[styles.openBadge, { backgroundColor: shop.isOpen ? "#43A047" : "#ef4444" }]}>
-                <Text style={styles.openText}>{shop.isOpen ? "Open" : "Closed"}</Text>
+              <View style={[styles.openBadge, { backgroundColor: shopOpen ? "#43A047" : "#ef4444" }]}>
+                <Text style={styles.openText}>{shopOpen ? "Open" : "Closed"}</Text>
               </View>
             </View>
+            <Text style={styles.hoursText}>{formatShopHours(shop)}</Text>
           </View>
         </View>
       </View>
+
+      {!shopOpen && (
+        <View style={styles.closedBanner}>
+          <Feather name="moon" size={15} color="#C62828" />
+          <Text style={styles.closedBannerText}>
+            Currently Closed · Opens {formatShopHours(shop).split("–")[0].trim()}
+          </Text>
+        </View>
+      )}
 
       <View style={[styles.catRow, { borderBottomColor: colors.border }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingVertical: 12 }}>
@@ -81,6 +102,8 @@ export default function ShopDetailScreen() {
                 },
               ]}
               onPress={() => setActiveCategory(cat)}
+              accessibilityLabel={`Filter by ${cat}`}
+              accessibilityRole="button"
             >
               <Text style={[styles.catText, { color: activeCategory === cat ? "#fff" : colors.foreground }]}>
                 {cat}
@@ -99,7 +122,14 @@ export default function ShopDetailScreen() {
         </Text>
         {filteredProducts.map((product) => {
           const cartItem = cart.find((i) => i.id === product.id);
-          return <ProductCard key={product.id} product={product} cartItem={cartItem} />;
+          return (
+            <ProductCard
+              key={product.id}
+              product={product}
+              cartItem={cartItem}
+              shopOpen={shopOpen}
+            />
+          );
         })}
       </ScrollView>
 
@@ -167,10 +197,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: "Inter_600SemiBold",
   },
-  shopDot: {
-    color: "rgba(255,255,255,0.6)",
-    fontSize: 13,
-  },
+  shopDot: { color: "rgba(255,255,255,0.6)", fontSize: 13 },
   shopDist: {
     color: "rgba(255,255,255,0.8)",
     fontSize: 12,
@@ -188,9 +215,27 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
   },
-  catRow: {
-    borderBottomWidth: 1,
+  hoursText: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    marginTop: 3,
   },
+  closedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FFEBEE",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  closedBannerText: {
+    color: "#C62828",
+    fontSize: 13,
+    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold",
+  },
+  catRow: { borderBottomWidth: 1 },
   catChip: {
     paddingHorizontal: 14,
     paddingVertical: 7,

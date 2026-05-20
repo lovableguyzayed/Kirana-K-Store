@@ -13,6 +13,7 @@ export interface Product {
   stock: number;
   description?: string;
   isWeightBased?: boolean;
+  isActive?: boolean;
 }
 
 export interface CartItem extends Product {
@@ -49,13 +50,30 @@ export interface Order {
   placedAt: string;
 }
 
+export interface AppUser {
+  phone: string;
+  role: "customer" | "shopkeeper";
+  shopId?: string;
+  shopName?: string;
+  ownerName?: string;
+}
+
 interface AppContextType {
   cart: CartItem[];
   orders: Order[];
   selectedShop: Shop | null;
   deliveryMode: "pickup" | "delivery";
   isShopkeeper: boolean;
+  currentUser: AppUser | null;
+  setCurrentUser: (user: AppUser | null) => void;
+  shopProducts: Record<string, Product[]>;
+  addProduct: (shopId: string, product: Omit<Product, "id" | "shopId" | "shopName">) => void;
+  updateProduct: (shopId: string, productId: string, updates: Partial<Product>) => void;
+  deleteProduct: (shopId: string, productId: string) => void;
+  toggleProductActive: (shopId: string, productId: string) => void;
+  cartShopId: string | null;
   addToCart: (product: Product, opts?: { selectedWeight?: string; priceOverride?: number }) => void;
+  replaceCart: (product: Product, opts?: { selectedWeight?: string; priceOverride?: number }) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -63,7 +81,6 @@ interface AppContextType {
   setDeliveryMode: (mode: "pickup" | "delivery") => void;
   placeOrder: (address: string, paymentMethod: "cod" | "upi") => Order;
   updateOrderStatus: (orderId: string, status: Order["status"]) => void;
-  setIsShopkeeper: (val: boolean) => void;
   cartTotal: number;
   cartCount: number;
 }
@@ -332,7 +349,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(MOCK_ORDERS);
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [deliveryMode, setDeliveryMode] = useState<"pickup" | "delivery">("delivery");
-  const [isShopkeeper, setIsShopkeeper] = useState(false);
+  const [currentUser, setCurrentUserState] = useState<AppUser | null>(null);
+  const [shopProducts, setShopProducts] = useState<Record<string, Product[]>>(MOCK_PRODUCTS);
+
+  const isShopkeeper = currentUser?.role === "shopkeeper";
 
   useEffect(() => {
     AsyncStorage.getItem("kk_cart").then((val) => {
@@ -349,6 +369,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setOrders(merged);
       }
     });
+    AsyncStorage.getItem("kk_user").then((val) => {
+      if (val) setCurrentUserState(JSON.parse(val));
+    });
   }, []);
 
   useEffect(() => {
@@ -359,9 +382,76 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem("kk_orders", JSON.stringify(orders));
   }, [orders]);
 
+  useEffect(() => {
+    if (currentUser) {
+      AsyncStorage.setItem("kk_user", JSON.stringify(currentUser));
+    } else {
+      AsyncStorage.removeItem("kk_user");
+    }
+  }, [currentUser]);
+
+  const setCurrentUser = useCallback((user: AppUser | null) => {
+    setCurrentUserState(user);
+  }, []);
+
+  const addProduct = useCallback(
+    (shopId: string, product: Omit<Product, "id" | "shopId" | "shopName">) => {
+      const shop = MOCK_SHOPS.find((s) => s.id === shopId);
+      const newProduct: Product = {
+        ...product,
+        id: `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`,
+        shopId,
+        shopName: shop?.name ?? "",
+        isActive: true,
+      };
+      setShopProducts((prev) => ({
+        ...prev,
+        [shopId]: [...(prev[shopId] ?? []), newProduct],
+      }));
+    },
+    []
+  );
+
+  const updateProduct = useCallback(
+    (shopId: string, productId: string, updates: Partial<Product>) => {
+      setShopProducts((prev) => ({
+        ...prev,
+        [shopId]: (prev[shopId] ?? []).map((p) =>
+          p.id === productId ? { ...p, ...updates } : p
+        ),
+      }));
+    },
+    []
+  );
+
+  const deleteProduct = useCallback(
+    (shopId: string, productId: string) => {
+      setShopProducts((prev) => ({
+        ...prev,
+        [shopId]: (prev[shopId] ?? []).filter((p) => p.id !== productId),
+      }));
+    },
+    []
+  );
+
+  const toggleProductActive = useCallback(
+    (shopId: string, productId: string) => {
+      setShopProducts((prev) => ({
+        ...prev,
+        [shopId]: (prev[shopId] ?? []).map((p) =>
+          p.id === productId ? { ...p, isActive: p.isActive === false ? true : false } : p
+        ),
+      }));
+    },
+    []
+  );
+
   const addToCart = useCallback(
     (product: Product, opts?: { selectedWeight?: string; priceOverride?: number }) => {
       setCart((prev) => {
+        if (prev.length > 0 && prev[0].shopId !== product.shopId) {
+          return prev;
+        }
         const existing = prev.find((i) => i.id === product.id);
         if (existing) {
           if (opts?.selectedWeight && opts.selectedWeight !== existing.selectedWeight) {
@@ -387,6 +477,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const replaceCart = useCallback(
+    (product: Product, opts?: { selectedWeight?: string; priceOverride?: number }) => {
+      setCart([
+        {
+          ...product,
+          price: opts?.priceOverride ?? product.price,
+          quantity: 1,
+          selectedWeight: opts?.selectedWeight,
+        },
+      ]);
+    },
+    []
+  );
+
   const removeFromCart = useCallback((productId: string) => {
     setCart((prev) => prev.filter((i) => i.id !== productId));
   }, []);
@@ -403,12 +507,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const placeOrder = useCallback(
     (address: string, paymentMethod: "cod" | "upi"): Order => {
+      if (!selectedShop) {
+        throw new Error("placeOrder: selectedShop is null");
+      }
       const total = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
       const deliveryFee = deliveryMode === "delivery" ? (total < 200 ? 30 : 0) : 0;
       const newOrder: Order = {
-        id: `o${Date.now()}`,
-        shopId: selectedShop?.id || "",
-        shopName: selectedShop?.name || "",
+        id: `o${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
+        shopId: selectedShop.id,
+        shopName: selectedShop.name,
         items: [...cart],
         total,
         deliveryFee,
@@ -431,6 +538,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const cartTotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const cartCount = cart.reduce((sum, i) => sum + i.quantity, 0);
+  const cartShopId = cart.length > 0 ? cart[0].shopId : null;
 
   return (
     <AppContext.Provider
@@ -440,7 +548,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         selectedShop,
         deliveryMode,
         isShopkeeper,
+        currentUser,
+        setCurrentUser,
+        shopProducts,
+        addProduct,
+        updateProduct,
+        deleteProduct,
+        toggleProductActive,
+        cartShopId,
         addToCart,
+        replaceCart,
         removeFromCart,
         updateQuantity,
         clearCart,
@@ -448,7 +565,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setDeliveryMode,
         placeOrder,
         updateOrderStatus,
-        setIsShopkeeper,
         cartTotal,
         cartCount,
       }}

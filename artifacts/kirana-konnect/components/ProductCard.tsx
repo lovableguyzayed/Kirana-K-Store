@@ -2,11 +2,10 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useState } from "react";
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import AddToCartModal from "@/components/AddToCartModal";
-import { CartItem, Product, isWeightBased } from "@/context/AppContext";
-import { useApp } from "@/context/AppContext";
+import { CartItem, Product, isWeightBased, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -32,11 +31,12 @@ const CATEGORY_COLORS: Record<string, string> = {
 interface ProductCardProps {
   product: Product;
   cartItem?: CartItem;
+  shopOpen?: boolean;
 }
 
-export default function ProductCard({ product, cartItem }: ProductCardProps) {
+export default function ProductCard({ product, cartItem, shopOpen = true }: ProductCardProps) {
   const colors = useColors();
-  const { addToCart, updateQuantity, removeFromCart } = useApp();
+  const { addToCart, updateQuantity, removeFromCart, replaceCart, cartShopId } = useApp();
   const weightProduct = isWeightBased(product);
   const [modalVisible, setModalVisible] = useState(false);
 
@@ -44,10 +44,37 @@ export default function ProductCard({ product, cartItem }: ProductCardProps) {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  const doCrossShopAdd = (onConfirm: () => void) => {
+    if (cartShopId && cartShopId !== product.shopId) {
+      if (Platform.OS === "web") {
+        if (
+          typeof window !== "undefined" &&
+          window.confirm(`Your cart has items from another store. Start a new cart with "${product.name}"?`)
+        ) {
+          onConfirm();
+        }
+      } else {
+        Alert.alert(
+          "Start new cart?",
+          `Your cart has items from another store. Add "${product.name}" to start a fresh cart?`,
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Start New Cart", style: "destructive", onPress: onConfirm },
+          ]
+        );
+      }
+      return true;
+    }
+    return false;
+  };
+
   const handleAdd = () => {
+    if (!shopOpen) return;
     if (weightProduct) {
+      if (doCrossShopAdd(() => { replaceCart(product); setModalVisible(true); })) return;
       setModalVisible(true);
     } else {
+      if (doCrossShopAdd(() => { replaceCart(product); haptic(); })) return;
       addToCart(product);
       haptic();
     }
@@ -56,15 +83,17 @@ export default function ProductCard({ product, cartItem }: ProductCardProps) {
   const iconName = (CATEGORY_ICONS[product.category] || "package") as any;
   const iconBgColor = CATEGORY_COLORS[product.category] || "#A5D6A7";
 
+  const displayPrice = cartItem ? cartItem.price : product.price;
+
   return (
     <>
-      {/* Card — product info is tappable (navigate), action buttons are separate */}
       <View style={[styles.card, { backgroundColor: colors.background, borderColor: colors.border }]}>
-        {/* Left: icon + info — navigates to product detail */}
         <TouchableOpacity
           style={styles.cardLeft}
-          onPress={() => router.push(`/product/${product.id}`)}
+          onPress={() => router.push({ pathname: "/product/[id]", params: { id: product.id } })}
           activeOpacity={0.75}
+          accessibilityLabel={`View ${product.name} details`}
+          accessibilityRole="button"
         >
           <View style={[styles.imgBox, { backgroundColor: iconBgColor + "30" }]}>
             <Feather name={iconName} size={24} color={iconBgColor} />
@@ -87,11 +116,15 @@ export default function ProductCard({ product, cartItem }: ProductCardProps) {
                 ? `${product.unit} · tap to select`
                 : product.unit}
             </Text>
-            <Text style={[styles.price, { color: colors.foreground }]}>₹{product.price}</Text>
+            <View style={styles.priceRow}>
+              <Text style={[styles.price, { color: colors.foreground }]}>₹{displayPrice}</Text>
+              {!cartItem && weightProduct && (
+                <Text style={[styles.perUnit, { color: colors.mutedForeground }]}>/{product.unit}</Text>
+              )}
+            </View>
           </View>
         </TouchableOpacity>
 
-        {/* Right: action buttons — DO NOT navigate */}
         <View style={styles.actions}>
           {cartItem ? (
             weightProduct ? (
@@ -99,6 +132,8 @@ export default function ProductCard({ product, cartItem }: ProductCardProps) {
                 <TouchableOpacity
                   style={[styles.editWeightBtn, { backgroundColor: colors.primary + "18", borderColor: colors.primary + "40" }]}
                   onPress={() => setModalVisible(true)}
+                  accessibilityLabel="Edit weight selection"
+                  accessibilityRole="button"
                 >
                   <Feather name="edit-2" size={12} color={colors.primary} />
                   <Text style={[styles.editWeightText, { color: colors.primary }]}>Edit</Text>
@@ -111,6 +146,8 @@ export default function ProductCard({ product, cartItem }: ProductCardProps) {
                       else updateQuantity(product.id, cartItem.quantity - 1);
                       haptic();
                     }}
+                    accessibilityLabel="Decrease quantity"
+                    accessibilityRole="button"
                   >
                     <Feather name="minus" size={13} color={colors.primary} />
                   </TouchableOpacity>
@@ -118,6 +155,8 @@ export default function ProductCard({ product, cartItem }: ProductCardProps) {
                   <TouchableOpacity
                     style={styles.qtyBtn}
                     onPress={() => { updateQuantity(product.id, cartItem.quantity + 1); haptic(); }}
+                    accessibilityLabel="Increase quantity"
+                    accessibilityRole="button"
                   >
                     <Feather name="plus" size={13} color={colors.primary} />
                   </TouchableOpacity>
@@ -132,6 +171,8 @@ export default function ProductCard({ product, cartItem }: ProductCardProps) {
                     else updateQuantity(product.id, cartItem.quantity - 1);
                     haptic();
                   }}
+                  accessibilityLabel="Decrease quantity"
+                  accessibilityRole="button"
                 >
                   <Feather name="minus" size={13} color={colors.primary} />
                 </TouchableOpacity>
@@ -139,6 +180,8 @@ export default function ProductCard({ product, cartItem }: ProductCardProps) {
                 <TouchableOpacity
                   style={styles.qtyBtn}
                   onPress={() => { updateQuantity(product.id, cartItem.quantity + 1); haptic(); }}
+                  accessibilityLabel="Increase quantity"
+                  accessibilityRole="button"
                 >
                   <Feather name="plus" size={13} color={colors.primary} />
                 </TouchableOpacity>
@@ -146,19 +189,22 @@ export default function ProductCard({ product, cartItem }: ProductCardProps) {
             )
           ) : (
             <TouchableOpacity
-              style={[styles.addBtn, { backgroundColor: colors.primary }]}
+              style={[styles.addBtn, { backgroundColor: shopOpen ? colors.primary : colors.muted }]}
               onPress={handleAdd}
-              activeOpacity={0.85}
+              activeOpacity={shopOpen ? 0.85 : 1}
+              disabled={!shopOpen}
+              accessibilityLabel={shopOpen ? `Add ${product.name} to cart` : "Store is closed"}
+              accessibilityRole="button"
             >
               {weightProduct ? (
                 <>
-                  <Feather name="sliders" size={13} color="#fff" />
-                  <Text style={styles.addText}>Select</Text>
+                  <Feather name="sliders" size={13} color={shopOpen ? "#fff" : colors.mutedForeground} />
+                  <Text style={[styles.addText, { color: shopOpen ? "#fff" : colors.mutedForeground }]}>Select</Text>
                 </>
               ) : (
                 <>
-                  <Feather name="plus" size={15} color="#fff" />
-                  <Text style={styles.addText}>Add</Text>
+                  <Feather name="plus" size={15} color={shopOpen ? "#fff" : colors.mutedForeground} />
+                  <Text style={[styles.addText, { color: shopOpen ? "#fff" : colors.mutedForeground }]}>Add</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -185,7 +231,6 @@ const styles = StyleSheet.create({
     paddingRight: 10,
     flexDirection: "row",
     alignItems: "center",
-    gap: 0,
     marginBottom: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -221,26 +266,22 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
   },
-  info: {
-    flex: 1,
-    gap: 2,
-  },
+  info: { flex: 1, gap: 2 },
   name: {
     fontSize: 14,
     fontWeight: "600",
     fontFamily: "Inter_600SemiBold",
     lineHeight: 18,
   },
-  unitText: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-  },
-  price: {
-    fontSize: 15,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
+  unitText: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 2,
     marginTop: 2,
   },
+  price: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  perUnit: { fontSize: 11, fontFamily: "Inter_400Regular" },
   actions: {
     alignItems: "center",
     justifyContent: "center",
@@ -254,12 +295,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 10,
   },
-  addText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
+  addText: { fontSize: 13, fontWeight: "700", fontFamily: "Inter_700Bold" },
   qtyControl: {
     flexDirection: "row",
     alignItems: "center",
@@ -267,10 +303,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: "hidden",
   },
-  qtyBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
+  qtyBtn: { paddingHorizontal: 8, paddingVertical: 8 },
   qty: {
     fontSize: 14,
     fontWeight: "700",
@@ -278,10 +311,7 @@ const styles = StyleSheet.create({
     minWidth: 22,
     textAlign: "center",
   },
-  weightCartControls: {
-    alignItems: "center",
-    gap: 5,
-  },
+  weightCartControls: { alignItems: "center", gap: 5 },
   editWeightBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -291,9 +321,5 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
   },
-  editWeightText: {
-    fontSize: 11,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-  },
+  editWeightText: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
 });

@@ -5,6 +5,7 @@ import { StyleSheet, View } from "react-native";
 
 import { Shop, SHOPS } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { isShopCurrentlyOpen } from "@/utils/shopUtils";
 
 interface MapViewComponentProps {
   onShopPress: (shop: Shop) => void;
@@ -26,25 +27,30 @@ export default function MapViewComponent({ onShopPress, selectedShop }: MapViewC
       showsUserLocation
       showsMyLocationButton={false}
     >
-      {SHOPS.map((shop) => (
-        <Marker
-          key={shop.id}
-          coordinate={{ latitude: shop.lat, longitude: shop.lng }}
-          onPress={() => onShopPress(shop)}
-        >
-          <View
-            style={[
-              styles.pin,
-              {
-                backgroundColor: selectedShop?.id === shop.id ? colors.accent : colors.primary,
-                borderColor: "#fff",
-              },
-            ]}
+      {SHOPS.map((shop) => {
+        const shopOpen = isShopCurrentlyOpen(shop);
+        return (
+          <Marker
+            key={shop.id}
+            coordinate={{ latitude: shop.lat, longitude: shop.lng }}
+            onPress={() => onShopPress(shop)}
           >
-            <Feather name="shopping-bag" size={12} color="#fff" />
-          </View>
-        </Marker>
-      ))}
+            <View
+              style={[
+                styles.pin,
+                {
+                  backgroundColor: selectedShop?.id === shop.id
+                    ? colors.accent
+                    : shopOpen ? colors.primary : "#9E9E9E",
+                  borderColor: "#fff",
+                },
+              ]}
+            >
+              <Feather name="shopping-bag" size={12} color="#fff" />
+            </View>
+          </Marker>
+        );
+      })}
     </MapView>
   );
 }

@@ -18,10 +18,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MapViewComponent from "@/components/MapView";
 import { Shop, SHOPS, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { isShopCurrentlyOpen } from "@/utils/shopUtils";
 
 const FILTERS = ["All", "Open Now", "Nearest", "Best Rated"];
 const { height: SCREEN_H } = Dimensions.get("window");
-const HEADER_H = Platform.OS === "web" ? 180 : 140;
 const SHEET_COLLAPSED = 200;
 const SHEET_EXPANDED = SCREEN_H * 0.65;
 
@@ -36,7 +36,6 @@ export default function HomeScreen() {
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
-  // Bottom sheet animation
   const sheetAnim = useRef(new Animated.Value(SHEET_COLLAPSED)).current;
   const sheetHeightRef = useRef(SHEET_COLLAPSED);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -77,7 +76,7 @@ export default function HomeScreen() {
 
   const filteredShops = SHOPS.filter((s) => {
     if (search) return s.name.toLowerCase().includes(search.toLowerCase());
-    if (activeFilter === "Open Now") return s.isOpen;
+    if (activeFilter === "Open Now") return isShopCurrentlyOpen(s);
     return true;
   }).sort((a, b) => {
     if (activeFilter === "Best Rated") return b.rating - a.rating;
@@ -87,23 +86,20 @@ export default function HomeScreen() {
 
   const handleShopPress = (shop: Shop) => {
     setSelectedPin(shop);
-    // Collapse sheet when pin tapped on map
     snapTo(SHEET_COLLAPSED);
   };
 
   const handleViewShop = (shop: Shop) => {
     setSelectedShop(shop);
-    router.push("/shop/" + shop.id);
+    router.push({ pathname: "/shop/[id]", params: { id: shop.id } });
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Full-screen map behind everything */}
       <View style={StyleSheet.absoluteFill}>
         <MapViewComponent onShopPress={handleShopPress} selectedShop={selectedPin} />
       </View>
 
-      {/* Floating header */}
       <View style={[styles.header, { paddingTop: topPad + 8 }]}>
         <View style={[styles.searchBar, { backgroundColor: colors.background, borderColor: colors.border }]}>
           <Feather name="search" size={18} color={colors.mutedForeground} />
@@ -114,9 +110,10 @@ export default function HomeScreen() {
             value={search}
             onChangeText={setSearch}
             onFocus={() => router.push("/search")}
+            accessibilityLabel="Search shops or products"
           />
           {search ? (
-            <TouchableOpacity onPress={() => setSearch("")}>
+            <TouchableOpacity onPress={() => setSearch("")} accessibilityLabel="Clear search" accessibilityRole="button">
               <Feather name="x" size={16} color={colors.mutedForeground} />
             </TouchableOpacity>
           ) : null}
@@ -130,6 +127,8 @@ export default function HomeScreen() {
                 { backgroundColor: activeFilter === f ? colors.primary : colors.background, borderColor: activeFilter === f ? colors.primary : colors.border },
               ]}
               onPress={() => setActiveFilter(f)}
+              accessibilityLabel={`Filter: ${f}`}
+              accessibilityRole="button"
             >
               <Text style={[styles.filterText, { color: activeFilter === f ? "#fff" : colors.foreground }]}>{f}</Text>
             </TouchableOpacity>
@@ -137,12 +136,13 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* Shop pin popup (when a pin is tapped on map) */}
       {selectedPin && (
         <TouchableOpacity
           style={[styles.pinPopup, { backgroundColor: colors.background, borderColor: colors.border }]}
           onPress={() => handleViewShop(selectedPin)}
           activeOpacity={0.92}
+          accessibilityLabel={`View ${selectedPin.name}`}
+          accessibilityRole="button"
         >
           <View style={[styles.pinPopupIcon, { backgroundColor: colors.primary + "18" }]}>
             <Text style={{ fontSize: 22 }}>🛒</Text>
@@ -154,10 +154,17 @@ export default function HomeScreen() {
               <Text style={[styles.pinPopupRating, { color: colors.foreground }]}>{selectedPin.rating}</Text>
               <Text style={[styles.pinPopupDot, { color: colors.mutedForeground }]}>·</Text>
               <Text style={[styles.pinPopupDist, { color: colors.mutedForeground }]}>{selectedPin.distance}</Text>
-              <View style={[styles.statusDot, { backgroundColor: selectedPin.isOpen ? "#43A047" : "#ef4444" }]} />
-              <Text style={[styles.statusText, { color: selectedPin.isOpen ? "#43A047" : "#ef4444" }]}>
-                {selectedPin.isOpen ? "Open" : "Closed"}
-              </Text>
+              {(() => {
+                const open = isShopCurrentlyOpen(selectedPin);
+                return (
+                  <>
+                    <View style={[styles.statusDot, { backgroundColor: open ? "#43A047" : "#ef4444" }]} />
+                    <Text style={[styles.statusText, { color: open ? "#43A047" : "#ef4444" }]}>
+                      {open ? "Open" : "Closed"}
+                    </Text>
+                  </>
+                );
+              })()}
             </View>
           </View>
           <View style={[styles.pinPopupArrow, { backgroundColor: colors.primary }]}>
@@ -167,17 +174,17 @@ export default function HomeScreen() {
             style={styles.pinPopupClose}
             onPress={() => setSelectedPin(null)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Close shop popup"
+            accessibilityRole="button"
           >
             <Feather name="x" size={14} color={colors.mutedForeground} />
           </TouchableOpacity>
         </TouchableOpacity>
       )}
 
-      {/* Draggable bottom sheet */}
       <Animated.View
         style={[styles.sheet, { height: sheetAnim, backgroundColor: colors.background }]}
       >
-        {/* Drag handle */}
         <View style={styles.dragArea} {...panResponder.panHandlers}>
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
           <View style={styles.sheetHeader}>
@@ -190,6 +197,8 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={[styles.expandBtn, { backgroundColor: colors.primary + "18", borderColor: colors.primary + "40" }]}
               onPress={() => snapTo(isExpanded ? SHEET_COLLAPSED : SHEET_EXPANDED)}
+              accessibilityLabel={isExpanded ? "Collapse shop list" : "Expand shop list"}
+              accessibilityRole="button"
             >
               <Feather name={isExpanded ? "chevron-down" : "chevron-up"} size={16} color={colors.primary} />
               <Text style={[styles.expandText, { color: colors.primary }]}>{isExpanded ? "Less" : "More"}</Text>
@@ -197,60 +206,62 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Vertical shop list */}
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: bottomPad + 20, gap: 10 }}
           showsVerticalScrollIndicator={false}
           scrollEnabled={isExpanded}
         >
-          {filteredShops.map((shop) => (
-            <TouchableOpacity
-              key={shop.id}
-              style={[styles.shopRow, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => handleViewShop(shop)}
-              activeOpacity={0.82}
-            >
-              {/* Shop icon */}
-              <View style={[styles.shopRowIcon, { backgroundColor: colors.primary + "15" }]}>
-                <Text style={styles.shopRowEmoji}>🛒</Text>
-              </View>
+          {filteredShops.map((shop) => {
+            const shopOpen = isShopCurrentlyOpen(shop);
+            return (
+              <TouchableOpacity
+                key={shop.id}
+                style={[styles.shopRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => handleViewShop(shop)}
+                activeOpacity={0.82}
+                accessibilityLabel={`${shop.name} — ${shopOpen ? "Open" : "Closed"}, ${shop.distance}`}
+                accessibilityRole="button"
+              >
+                <View style={[styles.shopRowIcon, { backgroundColor: colors.primary + "15" }]}>
+                  <Text style={styles.shopRowEmoji}>🛒</Text>
+                </View>
 
-              {/* Info */}
-              <View style={styles.shopRowInfo}>
-                <View style={styles.shopRowTop}>
-                  <Text style={[styles.shopRowName, { color: colors.foreground }]} numberOfLines={1}>
-                    {shop.name}
-                  </Text>
-                  <View style={[styles.openBadge, { backgroundColor: shop.isOpen ? "#E8F5E9" : "#FFEBEE" }]}>
-                    <View style={[styles.openDot, { backgroundColor: shop.isOpen ? "#43A047" : "#ef4444" }]} />
-                    <Text style={[styles.openText, { color: shop.isOpen ? "#2E7D32" : "#C62828" }]}>
-                      {shop.isOpen ? "Open" : "Closed"}
+                <View style={styles.shopRowInfo}>
+                  <View style={styles.shopRowTop}>
+                    <Text style={[styles.shopRowName, { color: colors.foreground }]} numberOfLines={1}>
+                      {shop.name}
                     </Text>
+                    <View style={[styles.openBadge, { backgroundColor: shopOpen ? "#E8F5E9" : "#FFEBEE" }]}>
+                      <View style={[styles.openDot, { backgroundColor: shopOpen ? "#43A047" : "#ef4444" }]} />
+                      <Text style={[styles.openText, { color: shopOpen ? "#2E7D32" : "#C62828" }]}>
+                        {shopOpen ? "Open" : "Closed"}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.shopRowMeta}>
+                    <Feather name="star" size={12} color="#FFA000" />
+                    <Text style={[styles.shopRowRating, { color: colors.foreground }]}>{shop.rating}</Text>
+                    <Text style={[styles.shopRowDot, { color: colors.mutedForeground }]}>·</Text>
+                    <Feather name="map-pin" size={11} color={colors.mutedForeground} />
+                    <Text style={[styles.shopRowDist, { color: colors.mutedForeground }]}>{shop.distance}</Text>
+                    <Text style={[styles.shopRowDot, { color: colors.mutedForeground }]}>·</Text>
+                    <Text style={[styles.shopRowCat, { color: colors.mutedForeground }]}>Groceries</Text>
                   </View>
                 </View>
-                <View style={styles.shopRowMeta}>
-                  <Feather name="star" size={12} color="#FFA000" />
-                  <Text style={[styles.shopRowRating, { color: colors.foreground }]}>{shop.rating}</Text>
-                  <Text style={[styles.shopRowDot, { color: colors.mutedForeground }]}>·</Text>
-                  <Feather name="map-pin" size={11} color={colors.mutedForeground} />
-                  <Text style={[styles.shopRowDist, { color: colors.mutedForeground }]}>{shop.distance}</Text>
-                  <Text style={[styles.shopRowDot, { color: colors.mutedForeground }]}>·</Text>
-                  <Text style={[styles.shopRowCat, { color: colors.mutedForeground }]}>Groceries</Text>
-                </View>
-              </View>
 
-              {/* Arrow */}
-              <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          ))}
+                <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </Animated.View>
 
-      {/* Cart FAB */}
       {cartCount > 0 && (
         <TouchableOpacity
           style={[styles.cartFAB, { backgroundColor: colors.primary }]}
           onPress={() => router.push("/cart")}
+          accessibilityLabel={`View cart — ${cartCount} items`}
+          accessibilityRole="button"
         >
           <Feather name="shopping-cart" size={20} color="#fff" />
           <View style={[styles.cartFABBadge, { backgroundColor: "#FF9800" }]}>
@@ -264,8 +275,6 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-
-  // Floating header
   header: {
     position: "absolute",
     top: 0,
@@ -312,8 +321,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     fontFamily: "Inter_500Medium",
   },
-
-  // Pin popup (shown when map pin is tapped)
   pinPopup: {
     position: "absolute",
     left: 16,
@@ -367,8 +374,6 @@ const styles = StyleSheet.create({
     top: 8,
     right: 8,
   },
-
-  // Bottom sheet
   sheet: {
     position: "absolute",
     bottom: 0,
@@ -425,8 +430,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: "Inter_600SemiBold",
   },
-
-  // Vertical shop row cards
   shopRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -447,13 +450,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  shopRowEmoji: {
-    fontSize: 26,
-  },
-  shopRowInfo: {
-    flex: 1,
-    gap: 5,
-  },
+  shopRowEmoji: { fontSize: 26 },
+  shopRowInfo: { flex: 1, gap: 5 },
   shopRowTop: {
     flexDirection: "row",
     alignItems: "center",
@@ -474,39 +472,13 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 10,
   },
-  openDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  openText: {
-    fontSize: 11,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-  },
-  shopRowMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  shopRowRating: {
-    fontSize: 12,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-  },
-  shopRowDot: {
-    fontSize: 12,
-  },
-  shopRowDist: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-  },
-  shopRowCat: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-  },
-
-  // Cart FAB
+  openDot: { width: 6, height: 6, borderRadius: 3 },
+  openText: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  shopRowMeta: { flexDirection: "row", alignItems: "center", gap: 4 },
+  shopRowRating: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  shopRowDot: { fontSize: 12 },
+  shopRowDist: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  shopRowCat: { fontSize: 12, fontFamily: "Inter_400Regular" },
   cartFAB: {
     position: "absolute",
     bottom: SHEET_COLLAPSED + 16,

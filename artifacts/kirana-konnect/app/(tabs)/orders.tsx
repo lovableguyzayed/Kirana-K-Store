@@ -1,10 +1,10 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
-import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Order, useApp } from "@/context/AppContext";
+import { Order, SHOPS, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
 const STATUS_COLORS: Record<Order["status"], string> = {
@@ -28,17 +28,32 @@ const STATUS_LABELS: Record<Order["status"], string> = {
 export default function OrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, cart, addToCart } = useApp();
+  const { orders, cart, addToCart, clearCart, setSelectedShop } = useApp();
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
 
   const handleReorder = (order: Order) => {
-    order.items.forEach((item) => {
-      for (let i = 0; i < item.quantity; i++) {
-        addToCart(item);
-      }
-    });
-    router.push("/cart");
+    const shop = SHOPS.find((s) => s.id === order.shopId);
+
+    const doReorder = () => {
+      clearCart();
+      if (shop) setSelectedShop(shop);
+      order.items.forEach((item) => addToCart(item, { priceOverride: item.price }));
+      router.push("/cart");
+    };
+
+    if (cart.length > 0) {
+      Alert.alert(
+        "Replace cart?",
+        `This will clear your current cart and add items from ${order.shopName}.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Replace Cart", style: "destructive", onPress: doReorder },
+        ]
+      );
+    } else {
+      doReorder();
+    }
   };
 
   return (
@@ -57,6 +72,8 @@ export default function OrdersScreen() {
           <TouchableOpacity
             style={[styles.shopBtn, { backgroundColor: colors.primary }]}
             onPress={() => router.push("/(tabs)")}
+            accessibilityLabel="Browse shops"
+            accessibilityRole="button"
           >
             <Text style={styles.shopBtnText}>Browse Shops</Text>
           </TouchableOpacity>
@@ -70,7 +87,10 @@ export default function OrdersScreen() {
                   <Text style={[styles.shopName, { color: colors.foreground }]}>{order.shopName}</Text>
                   <Text style={[styles.orderId, { color: colors.mutedForeground }]}>#{order.id.toUpperCase()}</Text>
                 </View>
-                <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[order.status] + "20" }]}>
+                <View
+                  style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[order.status] + "20" }]}
+                  accessibilityLabel={`Order status: ${STATUS_LABELS[order.status]}`}
+                >
                   <View style={[styles.statusDot, { backgroundColor: STATUS_COLORS[order.status] }]} />
                   <Text style={[styles.statusText, { color: STATUS_COLORS[order.status] }]}>
                     {STATUS_LABELS[order.status]}
@@ -105,6 +125,8 @@ export default function OrdersScreen() {
                 <TouchableOpacity
                   style={[styles.reorderBtn, { backgroundColor: colors.primary + "15", borderColor: colors.primary }]}
                   onPress={() => handleReorder(order)}
+                  accessibilityLabel={`Reorder from ${order.shopName}`}
+                  accessibilityRole="button"
                 >
                   <Feather name="refresh-cw" size={13} color={colors.primary} />
                   <Text style={[styles.reorderText, { color: colors.primary }]}>Reorder</Text>
@@ -114,7 +136,9 @@ export default function OrdersScreen() {
               {(order.status === "pending" || order.status === "accepted" || order.status === "packed" || order.status === "out_for_delivery") && (
                 <TouchableOpacity
                   style={[styles.trackBtn, { backgroundColor: colors.primary }]}
-                  onPress={() => router.push("/tracking/" + order.id)}
+                  onPress={() => router.push({ pathname: "/tracking/[id]", params: { id: order.id } })}
+                  accessibilityLabel="Track order"
+                  accessibilityRole="button"
                 >
                   <Feather name="map-pin" size={14} color="#fff" />
                   <Text style={styles.trackText}>Track Order</Text>
@@ -202,39 +226,18 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 20,
   },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-  },
-  divider: {
-    height: 1,
-  },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  divider: { height: 1 },
   items: { gap: 3 },
-  itemText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
+  itemText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   cardFooter: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  total: {
-    fontSize: 17,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
-  mode: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
-  },
+  total: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  mode: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
   reorderBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -244,11 +247,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  reorderText: {
-    fontSize: 13,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-  },
+  reorderText: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   trackBtn: {
     flexDirection: "row",
     alignItems: "center",

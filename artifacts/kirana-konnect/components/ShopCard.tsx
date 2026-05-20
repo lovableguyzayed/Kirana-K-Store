@@ -4,6 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { Shop } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { isShopCurrentlyOpen } from "@/utils/shopUtils";
 
 interface ShopCardProps {
   shop: Shop;
@@ -13,6 +14,7 @@ interface ShopCardProps {
 
 export default function ShopCard({ shop, onPress, compact = false }: ShopCardProps) {
   const colors = useColors();
+  const shopOpen = isShopCurrentlyOpen(shop);
 
   return (
     <TouchableOpacity
@@ -26,10 +28,12 @@ export default function ShopCard({ shop, onPress, compact = false }: ShopCardPro
       ]}
       onPress={() => onPress(shop)}
       activeOpacity={0.85}
+      accessibilityLabel={`${shop.name} — ${shopOpen ? "Open" : "Closed"}, ${shop.distance}`}
+      accessibilityRole="button"
     >
       <View style={[styles.iconBox, { backgroundColor: colors.muted }]}>
         <Feather name="shopping-bag" size={compact ? 20 : 28} color={colors.primary} />
-        {!shop.isOpen && (
+        {!shopOpen && (
           <View style={[styles.closedBadge, { backgroundColor: colors.destructive }]}>
             <Text style={styles.closedText}>Closed</Text>
           </View>

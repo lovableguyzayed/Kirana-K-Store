@@ -1,8 +1,9 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { isShopCurrentlyOpen } from "@/utils/shopUtils";
 
 const ADDRESSES = [
   { id: "a1", label: "Home", address: "Block A-204, Sector 5, Noida, UP 201301" },
@@ -32,19 +34,51 @@ export default function CheckoutScreen() {
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
   const [selectedAddress, setSelectedAddress] = useState(ADDRESSES[0]);
+  const [customAddress, setCustomAddress] = useState("");
+  const [useCustom, setUseCustom] = useState(false);
+  const [addressError, setAddressError] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"cod" | "upi">("cod");
   const [placing, setPlacing] = useState(false);
+  const customAddressRef = useRef<TextInput>(null);
 
   const deliveryFee = deliveryMode === "delivery" ? (cartTotal < 200 ? 30 : 0) : 0;
   const grandTotal = cartTotal + deliveryFee;
 
+  const finalAddress = useCustom ? customAddress : selectedAddress.address;
+
   const handlePlaceOrder = () => {
+    if (deliveryMode === "delivery" && !finalAddress.trim()) {
+      setAddressError("Please enter a delivery address");
+      if (useCustom) customAddressRef.current?.focus();
+      return;
+    }
+    setAddressError(null);
+
+    if (selectedShop && !isShopCurrentlyOpen(selectedShop)) {
+      Alert.alert(
+        "Store Closed",
+        "This store is currently closed and cannot accept new orders.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    if (!selectedShop) {
+      Alert.alert("No Store Selected", "Please go back and select a store.");
+      return;
+    }
+
     setPlacing(true);
     if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setTimeout(() => {
-      const order = placeOrder(selectedAddress.address, paymentMethod);
-      setPlacing(false);
-      router.replace(`/tracking/${order.id}`);
+      try {
+        const order = placeOrder(finalAddress.trim(), paymentMethod);
+        setPlacing(false);
+        router.replace({ pathname: "/tracking/[id]", params: { id: order.id } });
+      } catch {
+        setPlacing(false);
+        Alert.alert("Error", "Could not place order. Please try again.");
+      }
     }, 1000);
   };
 
@@ -54,7 +88,12 @@ export default function CheckoutScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={[styles.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
+        >
           <Feather name="arrow-left" size={22} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.foreground }]}>Checkout</Text>
@@ -71,24 +110,66 @@ export default function CheckoutScreen() {
                 style={[
                   styles.addressCard,
                   {
-                    backgroundColor: selectedAddress.id === addr.id ? colors.primary + "10" : colors.card,
-                    borderColor: selectedAddress.id === addr.id ? colors.primary : colors.border,
+                    backgroundColor: !useCustom && selectedAddress.id === addr.id ? colors.primary + "10" : colors.card,
+                    borderColor: !useCustom && selectedAddress.id === addr.id ? colors.primary : colors.border,
                   },
                 ]}
-                onPress={() => setSelectedAddress(addr)}
+                onPress={() => { setSelectedAddress(addr); setUseCustom(false); setAddressError(null); }}
+                accessibilityLabel={`Select ${addr.label} address`}
+                accessibilityRole="radio"
               >
-                <View style={[styles.addrIcon, { backgroundColor: selectedAddress.id === addr.id ? colors.primary : colors.muted }]}>
-                  <Feather name={addr.label === "Home" ? "home" : "briefcase"} size={16} color={selectedAddress.id === addr.id ? "#fff" : colors.mutedForeground} />
+                <View style={[styles.addrIcon, { backgroundColor: !useCustom && selectedAddress.id === addr.id ? colors.primary : colors.muted }]}>
+                  <Feather name={addr.label === "Home" ? "home" : "briefcase"} size={16} color={!useCustom && selectedAddress.id === addr.id ? "#fff" : colors.mutedForeground} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.addrLabel, { color: colors.foreground }]}>{addr.label}</Text>
                   <Text style={[styles.addrText, { color: colors.mutedForeground }]}>{addr.address}</Text>
                 </View>
-                {selectedAddress.id === addr.id && (
+                {!useCustom && selectedAddress.id === addr.id && (
                   <Feather name="check-circle" size={20} color={colors.primary} />
                 )}
               </TouchableOpacity>
             ))}
+
+            <TouchableOpacity
+              style={[
+                styles.addressCard,
+                {
+                  backgroundColor: useCustom ? colors.primary + "10" : colors.card,
+                  borderColor: useCustom ? colors.primary : colors.border,
+                },
+              ]}
+              onPress={() => { setUseCustom(true); setTimeout(() => customAddressRef.current?.focus(), 100); }}
+              accessibilityLabel="Enter custom address"
+              accessibilityRole="radio"
+            >
+              <View style={[styles.addrIcon, { backgroundColor: useCustom ? colors.primary : colors.muted }]}>
+                <Feather name="edit-2" size={16} color={useCustom ? "#fff" : colors.mutedForeground} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.addrLabel, { color: colors.foreground }]}>Enter address</Text>
+                {useCustom ? (
+                  <TextInput
+                    ref={customAddressRef}
+                    style={[styles.customAddrInput, { color: colors.foreground }]}
+                    placeholder="Type your full address..."
+                    placeholderTextColor={colors.mutedForeground}
+                    value={customAddress}
+                    onChangeText={(v) => { setCustomAddress(v); if (v.trim()) setAddressError(null); }}
+                    multiline
+                    accessibilityLabel="Delivery address"
+                    accessibilityHint="Enter your full delivery address"
+                  />
+                ) : (
+                  <Text style={[styles.addrText, { color: colors.mutedForeground }]}>Type a different address</Text>
+                )}
+              </View>
+              {useCustom && <Feather name="check-circle" size={20} color={colors.primary} />}
+            </TouchableOpacity>
+
+            {addressError && (
+              <Text style={styles.errorText}>{addressError}</Text>
+            )}
           </View>
         )}
 
@@ -109,6 +190,8 @@ export default function CheckoutScreen() {
                   },
                 ]}
                 onPress={() => setPaymentMethod(pm.id)}
+                accessibilityLabel={`Pay with ${pm.label}`}
+                accessibilityRole="radio"
               >
                 <View style={[styles.payIcon, { backgroundColor: paymentMethod === pm.id ? colors.primary : colors.muted }]}>
                   <Feather name={pm.icon} size={18} color={paymentMethod === pm.id ? "#fff" : colors.mutedForeground} />
@@ -160,6 +243,8 @@ export default function CheckoutScreen() {
           onPress={handlePlaceOrder}
           disabled={placing}
           activeOpacity={0.85}
+          accessibilityLabel={`Place order — ₹${grandTotal}`}
+          accessibilityRole="button"
         >
           {placing ? (
             <ActivityIndicator color="#fff" />
@@ -192,17 +277,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-    marginBottom: 10,
-  },
+  title: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  sectionTitle: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", marginBottom: 10 },
   addressCard: {
     borderRadius: 14,
     borderWidth: 1.5,
@@ -219,16 +295,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  addrLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
+  addrLabel: { fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  addrText: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2, lineHeight: 16 },
+  customAddrInput: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginTop: 4,
+    minHeight: 40,
   },
-  addrText: {
+  errorText: {
+    color: "#ef4444",
     fontSize: 12,
     fontFamily: "Inter_400Regular",
-    marginTop: 2,
-    lineHeight: 16,
+    marginTop: -4,
+    marginBottom: 4,
   },
   payCard: {
     borderRadius: 14,
@@ -245,56 +325,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  payLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
-  payDesc: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    marginTop: 1,
-  },
-  orderSummary: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 16,
-    gap: 8,
-  },
-  shopFrom: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    marginBottom: 6,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  summaryItemName: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    flex: 1,
-  },
-  summaryItemPrice: {
-    fontSize: 13,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-    marginLeft: 8,
-  },
-  summaryDivider: {
-    height: 1,
-    marginVertical: 4,
-  },
-  summaryLabel: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
-  summaryVal: {
-    fontSize: 13,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-  },
+  payLabel: { fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  payDesc: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 1 },
+  orderSummary: { borderRadius: 14, borderWidth: 1, padding: 16, gap: 8 },
+  shopFrom: { fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 6 },
+  summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  summaryItemName: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
+  summaryItemPrice: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", marginLeft: 8 },
+  summaryDivider: { height: 1, marginVertical: 4 },
+  summaryLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  summaryVal: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -303,16 +343,8 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     marginTop: 2,
   },
-  totalLabel: {
-    fontSize: 15,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
-  totalVal: {
-    fontSize: 18,
-    fontWeight: "800",
-    fontFamily: "Inter_700Bold",
-  },
+  totalLabel: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  totalVal: { fontSize: 18, fontWeight: "800", fontFamily: "Inter_700Bold" },
   placeOrderBar: {
     position: "absolute",
     bottom: 0,
@@ -335,10 +367,5 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 16,
   },
-  placeOrderText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
+  placeOrderText: { color: "#fff", fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold" },
 });

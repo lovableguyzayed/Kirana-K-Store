@@ -4,6 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { Shop, SHOPS } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { isShopCurrentlyOpen } from "@/utils/shopUtils";
 
 interface MapViewComponentProps {
   onShopPress: (shop: Shop) => void;
@@ -45,6 +46,7 @@ export default function MapViewComponent({ onShopPress, selectedShop }: MapViewC
         const shop = SHOPS.find((s) => s.id === pin.id);
         if (!shop) return null;
         const isSelected = selectedShop?.id === shop.id;
+        const shopOpen = isShopCurrentlyOpen(shop);
         return (
           <View
             key={shop.id}
@@ -53,13 +55,20 @@ export default function MapViewComponent({ onShopPress, selectedShop }: MapViewC
               {
                 left: `${pin.xPct}%` as any,
                 top: `${pin.yPct}%` as any,
-                backgroundColor: isSelected ? colors.accent : colors.primary,
+                backgroundColor: isSelected
+                  ? colors.accent
+                  : shopOpen ? colors.primary : "#9E9E9E",
                 borderColor: "#fff",
                 transform: [{ scale: isSelected ? 1.2 : 1 }],
               },
             ]}
           >
-            <TouchableOpacity onPress={() => onShopPress(shop)} style={styles.pinTouchable}>
+            <TouchableOpacity
+              onPress={() => onShopPress(shop)}
+              style={styles.pinTouchable}
+              accessibilityLabel={`${shop.name} — ${shopOpen ? "Open" : "Closed"}`}
+              accessibilityRole="button"
+            >
               <Feather name="shopping-bag" size={12} color="#fff" />
             </TouchableOpacity>
             {isSelected && (
