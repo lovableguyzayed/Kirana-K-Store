@@ -41,3 +41,9 @@ id = "x2iW3kp7fxXOOhx1Hty6z"
 uri = "file://02_ANALYSIS.md"
 type = "text"
 title = "Phase 2 — Problem Analysis & Prioritization"
+
+[[outputs]]
+id = "2jsiOHAUTZO5fbfi-6kjw"
+uri = "file://03_ARCHITECTURE.md"
+type = "text"
+title = "Phase 3 — Solution Architecture"
