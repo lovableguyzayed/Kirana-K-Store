@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "xKenXEGqxQ6C9fHJ8BKQm"
@@ -30,3 +29,9 @@ id = "5q112uyNLvnTmLMqkofFF"
 uri = "file://artifacts/kirana-konnect/assets/images/atta.png"
 type = "image"
 title = "atta flour bag"
+
+[[outputs]]
+id = "dD_feYHU9AIiB1Guzpyt5"
+uri = "file://01_DISCOVERY.md"
+type = "text"
+title = "Phase 1 — Deep Discovery & Research"
