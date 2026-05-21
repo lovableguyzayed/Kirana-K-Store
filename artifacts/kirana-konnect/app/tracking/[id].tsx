@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useMemo, useState } from "react";
 import {
+  Alert,
   Animated,
   Linking,
   Platform,
@@ -232,6 +233,25 @@ export default function TrackingScreen() {
 
   const order = useMemo(() => orders.find((o) => o.id === id), [orders, id]);
 
+  const handleCancelOrder = () => {
+    if (!order) return;
+    Alert.alert(
+      "Cancel Order?",
+      "Are you sure you want to cancel this order? This cannot be undone.",
+      [
+        { text: "Keep Order", style: "cancel" },
+        {
+          text: "Cancel Order",
+          style: "destructive",
+          onPress: () => {
+            updateOrderStatus(order.id, "rejected");
+            router.replace("/(tabs)/orders");
+          },
+        },
+      ]
+    );
+  };
+
   // ETA countdown (starts at 12 min when out_for_delivery)
   const [etaMins, setEtaMins] = useState(12);
   useEffect(() => {
@@ -434,6 +454,18 @@ export default function TrackingScreen() {
             </Text>
           </View>
         </View>
+
+        {order.status === "pending" && (
+          <TouchableOpacity
+            style={[styles.cancelBtn, { backgroundColor: "#C62828" + "10", borderColor: "#C62828" + "40" }]}
+            onPress={handleCancelOrder}
+            accessibilityLabel="Cancel order"
+            accessibilityRole="button"
+          >
+            <Feather name="x-circle" size={16} color="#C62828" />
+            <Text style={[styles.cancelBtnText, { color: "#C62828" }]}>Cancel Order</Text>
+          </TouchableOpacity>
+        )}
 
         {order.status === "delivered" && (
           <TouchableOpacity
@@ -874,6 +906,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     flex: 1,
+  },
+  cancelBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
   },
   backToHome: {
     flexDirection: "row",

@@ -131,7 +131,7 @@ export default function ProfileScreen() {
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <TouchableOpacity
             style={[styles.settingRow]}
-            onPress={() => {}}
+            onPress={() => router.push("/help")}
             accessibilityLabel="Help and Support"
             accessibilityRole="button"
           >
@@ -142,12 +142,12 @@ export default function ProfileScreen() {
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <TouchableOpacity
             style={styles.settingRow}
-            onPress={() => {}}
+            onPress={() => router.push("/about")}
             accessibilityLabel="Privacy Policy"
             accessibilityRole="button"
           >
             <Feather name="shield" size={17} color={colors.mutedForeground} />
-            <Text style={[styles.settingLabel, { color: colors.foreground }]}>Privacy Policy</Text>
+            <Text style={[styles.settingLabel, { color: colors.foreground }]}>Privacy & About</Text>
             <Feather name="chevron-right" size={15} color={colors.mutedForeground} />
           </TouchableOpacity>
         </View>

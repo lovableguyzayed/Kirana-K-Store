@@ -5,28 +5,9 @@ import React, { useState } from "react";
 import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import AddToCartModal from "@/components/AddToCartModal";
+import { getCategoryColor, getCategoryIcon } from "@/constants/categories";
 import { CartItem, Product, isWeightBased, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
-
-const CATEGORY_ICONS: Record<string, string> = {
-  Dairy: "droplet",
-  Grocery: "package",
-  Snacks: "star",
-  Bakery: "coffee",
-  Beverages: "coffee",
-  Vegetables: "feather",
-  Stationery: "edit",
-};
-
-const CATEGORY_COLORS: Record<string, string> = {
-  Dairy: "#4FC3F7",
-  Grocery: "#A5D6A7",
-  Snacks: "#FFCC80",
-  Bakery: "#FFAB91",
-  Beverages: "#CE93D8",
-  Vegetables: "#81C784",
-  Stationery: "#B0BEC5",
-};
 
 interface ProductCardProps {
   product: Product;
@@ -80,8 +61,8 @@ export default function ProductCard({ product, cartItem, shopOpen = true }: Prod
     }
   };
 
-  const iconName = (CATEGORY_ICONS[product.category] || "package") as any;
-  const iconBgColor = CATEGORY_COLORS[product.category] || "#A5D6A7";
+  const iconName = getCategoryIcon(product.category) as any;
+  const iconBgColor = getCategoryColor(product.category);
 
   const displayPrice = cartItem ? cartItem.price : product.price;
 

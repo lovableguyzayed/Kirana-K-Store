@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Alert, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import EmptyState from "@/components/ui/EmptyState";
 import { Order, SHOPS, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -66,21 +67,13 @@ export default function OrdersScreen() {
       </View>
 
       {orders.length === 0 ? (
-        <View style={styles.empty}>
-          <Feather name="package" size={48} color={colors.mutedForeground} />
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No orders yet</Text>
-          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            Your order history will appear here
-          </Text>
-          <TouchableOpacity
-            style={[styles.shopBtn, { backgroundColor: colors.primary }]}
-            onPress={() => router.push("/(tabs)")}
-            accessibilityLabel="Browse shops"
-            accessibilityRole="button"
-          >
-            <Text style={styles.shopBtnText}>Browse Shops</Text>
-          </TouchableOpacity>
-        </View>
+        <EmptyState
+          icon="package"
+          title="No orders yet"
+          subtitle="Your order history will appear here once you place your first order"
+          ctaLabel="Browse Shops"
+          onCta={() => router.push("/(tabs)")}
+        />
       ) : (
         <ScrollView
           contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 100 }}

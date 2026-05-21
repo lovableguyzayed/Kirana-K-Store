@@ -44,7 +44,12 @@ export default function SplashScreen() {
             router.replace("/(tabs)");
           }
         } else {
-          router.replace("/login");
+          const onboarded = await AsyncStorage.getItem("kk_onboarded");
+          if (onboarded) {
+            router.replace("/login");
+          } else {
+            router.replace("/onboarding");
+          }
         }
       } catch {
         router.replace("/login");

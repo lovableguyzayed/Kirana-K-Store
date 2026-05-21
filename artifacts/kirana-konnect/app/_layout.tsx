@@ -26,6 +26,7 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="splash" />
+      <Stack.Screen name="onboarding" />
       <Stack.Screen name="login" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(shopkeeper)" />
@@ -33,8 +34,11 @@ function RootLayoutNav() {
       <Stack.Screen name="product/[id]" />
       <Stack.Screen name="cart" />
       <Stack.Screen name="checkout" />
+      <Stack.Screen name="order-success/[id]" />
       <Stack.Screen name="tracking/[id]" />
       <Stack.Screen name="search" />
+      <Stack.Screen name="help" />
+      <Stack.Screen name="about" />
     </Stack>
   );
 }

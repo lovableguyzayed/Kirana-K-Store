@@ -74,7 +74,7 @@ export default function CheckoutScreen() {
       try {
         const order = placeOrder(finalAddress.trim(), paymentMethod);
         setPlacing(false);
-        router.replace({ pathname: "/tracking/[id]", params: { id: order.id } });
+        router.replace({ pathname: "/order-success/[id]", params: { id: order.id } });
       } catch {
         setPlacing(false);
         Alert.alert("Error", "Could not place order. Please try again.");

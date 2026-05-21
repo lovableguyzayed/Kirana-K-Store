@@ -13,28 +13,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AddToCartModal from "@/components/AddToCartModal";
+import { getCategoryColor, getCategoryIcon } from "@/constants/categories";
 import { isWeightBased, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
-
-const CATEGORY_COLORS: Record<string, string> = {
-  Dairy: "#4FC3F7",
-  Grocery: "#A5D6A7",
-  Snacks: "#FFCC80",
-  Bakery: "#FFAB91",
-  Beverages: "#CE93D8",
-  Vegetables: "#81C784",
-  Stationery: "#B0BEC5",
-};
-
-const CATEGORY_ICONS: Record<string, string> = {
-  Dairy: "droplet",
-  Grocery: "package",
-  Snacks: "star",
-  Bakery: "coffee",
-  Beverages: "coffee",
-  Vegetables: "feather",
-  Stationery: "edit",
-};
 
 const MOCK_REVIEWS = [
   { name: "Priya S.", rating: 5, comment: "Fresh and good quality! Always delivered quickly." },
@@ -83,8 +64,8 @@ export default function ProductDetailScreen() {
     );
   }
 
-  const catColor = CATEGORY_COLORS[product.category] || "#A5D6A7";
-  const catIcon = (CATEGORY_ICONS[product.category] || "package") as any;
+  const catColor = getCategoryColor(product.category);
+  const catIcon = getCategoryIcon(product.category) as any;
   const isInCart = !!cartItem;
 
   const stockStatus =
