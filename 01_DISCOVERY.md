@@ -1,372 +1,325 @@
-# Phase 1 — Deep Discovery & Research
-## Kirana Konnect · Professional Application Audit
+# Phase 1 — Application Discovery & Design Research
 
-*Completed: May 2026 · Auditor: AI Architect Agent*
+> Generated: 2026-05-20 | Auditor: Senior Product Designer / UI-UX Specialist / Full-Stack Engineer  
+> Codebase: `artifacts/kirana-konnect/` | Framework: Expo 54 / React Native 0.81.5
 
 ---
 
-## 1. Project Overview
+## 1.1 Project & Tech Stack Map
 
-**Kirana Konnect** is a hyperlocal grocery-finder mobile application targeting Indian neighbourhood ("kirana") stores. It operates in two distinct modes:
+### Folder Tree (depth 4)
 
-| Mode | Entry | Primary User |
+```
+artifacts/kirana-konnect/
+├── app/
+│   ├── _layout.tsx                   ← Root layout (fonts, providers, Stack nav)
+│   ├── index.tsx                     ← Entry redirect → /splash
+│   ├── splash.tsx                    ← Animated splash → auto-login or /login
+│   ├── login.tsx                     ← Phone + OTP login, shopkeeper toggle
+│   ├── search.tsx                    ← Global search (products + shops)
+│   ├── cart.tsx                      ← Cart review, pickup/delivery toggle
+│   ├── checkout.tsx                  ← Address, payment, place order
+│   ├── +not-found.tsx                ← 404 screen
+│   ├── (tabs)/
+│   │   ├── _layout.tsx               ← Customer bottom tab bar
+│   │   ├── index.tsx                 ← Map/Discover home screen
+│   │   ├── orders.tsx                ← Customer order history
+│   │   └── profile.tsx               ← Customer profile & settings
+│   ├── (shopkeeper)/
+│   │   ├── _layout.tsx               ← Shopkeeper bottom tab bar + route guard
+│   │   ├── dashboard.tsx             ← SK business dashboard
+│   │   ├── orders.tsx                ← SK order management
+│   │   └── inventory.tsx             ← SK product CRUD
+│   ├── shop/
+│   │   └── [id].tsx                  ← Shop detail + category tabs + products
+│   ├── product/
+│   │   └── [id].tsx                  ← Product detail + reviews + add-to-cart
+│   └── tracking/
+│       └── [id].tsx                  ← Live order tracking + status timeline
+├── components/
+│   ├── AddToCartModal.tsx            ← Qty/weight selector bottom sheet
+│   ├── CartBar.tsx                   ← Floating cart snackbar
+│   ├── ProductCard.tsx               ← List product card with inline qty controls
+│   ├── ShopCard.tsx                  ← Shop list/grid card
+│   ├── MapView.tsx                   ← Native map (react-native-maps)
+│   ├── MapView.web.tsx               ← Web grid mock (no real map on web)
+│   ├── ErrorBoundary.tsx             ← Global crash boundary
+│   ├── ErrorFallback.tsx             ← Crash UI with restart button
+│   └── KeyboardAwareScrollViewCompat.tsx  ← Cross-platform keyboard scroll
+├── context/
+│   ├── AppContext.tsx                ← Central state: cart, orders, user, products
+│   └── ToastContext.tsx              ← Animated top-toast notifications
+├── constants/
+│   └── colors.ts                    ← Design token palette + radius
+├── hooks/
+│   └── useColors.ts                 ← Dark/light mode token resolver
+├── utils/
+│   └── shopUtils.ts                 ← Shop hours, haversine distance util
+├── assets/images/
+│   ├── icon.png
+│   ├── amul_milk.png, atta.png, kirana_store.png, veggies.png
+├── scripts/build.js
+├── server/serve.js
+├── app.json
+├── package.json
+└── tsconfig.json
+```
+
+### Tech Stack
+
+| Category | Technology | Version |
 |---|---|---|
-| Customer | Login → `/(tabs)` | Buyer browsing, ordering from nearby stores |
-| Shopkeeper | Login (toggle) → `/(shopkeeper)` | Store owner managing orders and inventory |
-
-The application is built with **Expo 54 / React Native 0.81.5** and runs as a managed Expo app targeting iOS, Android, and Web (via Expo Web).
-
----
-
-## 2. Repository & Monorepo Structure
-
-```
-artifacts-monorepo/
-├── artifacts/
-│   ├── kirana-konnect/        # Expo RN mobile app  (@workspace/kirana-konnect)
-│   ├── api-server/            # Express 5 API server (@workspace/api-server)
-│   └── mockup-sandbox/        # Canvas design preview server
-├── lib/
-│   ├── api-spec/              # OpenAPI spec + codegen (Orval)
-│   └── db/                    # Drizzle ORM + PostgreSQL schema
-├── scripts/                   # Shared utility scripts
-├── pnpm-workspace.yaml        # Workspace catalog + overrides
-├── tsconfig.base.json
-└── tsconfig.json              # Solution file (composite libs only)
-```
-
-**Package management**: pnpm workspaces, Node 24, TypeScript 5.9.
+| Framework | Expo | ~54.0.27 |
+| Runtime | React Native | 0.81.5 |
+| Language | TypeScript | ~5.9.2 |
+| Navigation | Expo Router — file-based Stack + Tabs | ~6.0.17 |
+| Styling | React Native `StyleSheet` + inline `useColors()` tokens | — |
+| Component library | Custom — **zero** third-party UI library | — |
+| Icon library | `@expo/vector-icons` Feather exclusively | ^15.0.3 |
+| Fonts | Inter (400/500/600/700) via `@expo-google-fonts/inter` | ^0.4.0 |
+| Animation | `react-native-reanimated` + core `Animated` API | ~4.1.1 |
+| Gestures | `react-native-gesture-handler` | ~2.28.0 |
+| Maps | `react-native-maps` (native) / custom grid mock (web) | 1.18.0 |
+| State | React Context (AppContext) + `@tanstack/react-query` | — |
+| Persistence | `@react-native-async-storage/async-storage` | 2.2.0 |
+| Haptics | `expo-haptics` | ~15.0.8 |
+| Blur | `expo-blur` — iOS tab bar | ~15.0.8 |
+| Keyboard | `react-native-keyboard-controller` | 1.18.5 |
+| Safe area | `react-native-safe-area-context` | ~5.6.0 |
+| Location | `expo-location` — **installed, not wired** | ~19.0.8 |
+| Image Picker | `expo-image-picker` — **installed, not wired** | ~17.0.9 |
+| Linear Gradient | `expo-linear-gradient` — **installed, not used** | ~15.0.8 |
+| SVG | `react-native-svg` — **installed, not used** | 15.12.1 |
+| HTTP client | `@workspace/api-client-react` (workspace package) | — |
+| Validation | `zod` (catalog version) | — |
 
 ---
 
-## 3. Tech Stack Inventory
+## 1.2 Application Purpose & User Identification
 
-### Mobile App (`artifacts/kirana-konnect`)
+### What This App Does
 
-| Concern | Library / Version |
+Kirana Konnect is a **hyperlocal grocery discovery and ordering platform** built for the Indian market. It connects customers with nearby neighbourhood kirana (corner grocery) stores, letting them browse store catalogues, add items to a cart, and place orders for either home delivery or in-store pickup. Customers can track their delivery in real time with an animated rider map and status timeline. On the other side, shop owners operate in a dedicated **Shopkeeper mode** — they manage live inventory, accept or reject incoming orders, advance each order through a fulfilment pipeline (accepted → packed → dispatched → delivered), and monitor daily earnings on a business dashboard. The app is entirely OTP-based (no passwords), and sessions persist across app restarts via AsyncStorage. All data is currently mock/in-memory; there is no live backend.
+
+### User Personas
+
+| Persona | Goal | Core jobs-to-be-done |
+|---|---|---|
+| **Customer** | Quickly find and order groceries from a nearby store | Discover open stores on map; browse catalogue; add to cart; checkout; track delivery; reorder from history |
+| **Shopkeeper / Store Owner** | Manage daily orders and keep catalogue current | View + action incoming orders; advance order status; add/edit/delete products; monitor earnings |
+| **Guest (unauthenticated)** | Currently blocked — no guest browsing | *(Not implemented — auth is mandatory before any content is accessible)* |
+
+### Core Value Proposition
+
+Hyperlocal grocery ordering with real-time tracking, purpose-built for the Indian kirana store ecosystem — giving neighbourhood shop owners a digital storefront and customers a faster way to shop local.
+
+---
+
+## 1.3 Existing Screen Inventory
+
+### Customer Screens
+
+| Screen | Route | Purpose | Entry | Exit | Status |
+|---|---|---|---|---|---|
+| **Splash** | `/splash` | Animated logo; AsyncStorage check; auto-routes to home or login | App cold start | `/login`, `/(tabs)`, `/(shopkeeper)/dashboard` | ✅ Complete |
+| **Login** | `/login` | Phone entry → 6-digit OTP → session; shopkeeper toggle | Splash (new user), Logout | `/(tabs)`, `/(shopkeeper)/dashboard` | ✅ Complete |
+| **Map / Discover** | `/(tabs)/` | Full-screen map + draggable bottom sheet; shop pins; filter chips; search bar entry point | Tab bar, Deep link | `/shop/[id]`, `/search`, `/cart` | ✅ Complete |
+| **Search** | `/search` | Auto-focus search; simultaneous product + shop results; grouped output | Search icon on Discover / Shop header | `/shop/[id]`, `/product/[id]` | ✅ Complete |
+| **Shop Detail** | `/shop/[id]` | Shop header (hours, rating, distance, open/closed); category tabs; product grid; CartBar | Map pin, Shop card, Search result | `/product/[id]`, `/cart`, Back | ✅ Complete |
+| **Product Detail** | `/product/[id]` | Category icon, stock status, qty/weight selector, mock reviews; bottom CTA bar | Product card tap | `/cart`, Back | ✅ Complete |
+| **Cart** | `/cart` | Items list with inline qty; pickup/delivery toggle; price breakdown; cross-shop conflict handling | CartBar, Cart icon | `/checkout`, Back | ✅ Complete |
+| **Checkout** | `/checkout` | Saved address selector + custom entry; COD/UPI toggle; shop-closed guard; place order | Cart → Proceed | `/tracking/[id]` | ✅ Complete |
+| **Order Tracking** | `/tracking/[id]` | Animated rider map; 5-step status timeline; items summary; rider call/SMS; celebration banner | Checkout success, Order history | `/(tabs)` (on delivery) | ✅ Complete |
+| **Order History** | `/(tabs)/orders` | All orders with status badges; reorder; pull-to-refresh | Tab bar | `/tracking/[id]` | ✅ Complete |
+| **Profile** | `/(tabs)/profile` | Phone, role badge, saved addresses (static), settings stubs, logout with confirmation | Tab bar | `/login` (logout) | ✅ Complete |
+| **Not Found** | `+not-found` | 404 fallback | Invalid route | Back | ✅ Complete |
+
+### Shopkeeper Screens
+
+| Screen | Route | Purpose | Entry | Exit | Status |
+|---|---|---|---|---|---|
+| **SK Dashboard** | `/(shopkeeper)/dashboard` | Today's orders, earnings, pending count; recent orders; pull-to-refresh; logout confirmation | Login (SK), Auto-login | `/(shopkeeper)/orders`, Logout | ✅ Complete |
+| **SK Orders** | `/(shopkeeper)/orders` | Active orders pipeline; Accept/Reject/Pack/Ready/Mark Delivered; tab badge for pending; pull-to-refresh | Tab bar | — | ✅ Complete |
+| **SK Inventory** | `/(shopkeeper)/inventory` | Product list; active/inactive toggle; add/edit modal (backdrop dismiss); delete with confirmation | Tab bar | — | ✅ Complete |
+
+---
+
+## 1.4 Existing Feature Inventory
+
+| Feature | Status | Notes |
+|---|---|---|
+| OTP phone login | ✅ Done | Frontend mock — any 6 digits accepted, no real SMS |
+| Auto-login on launch | ✅ Done | AsyncStorage check in `splash.tsx` |
+| Shopkeeper route guard | ✅ Done | `useEffect` redirect in `(shopkeeper)/_layout.tsx` |
+| Map shop discovery | ✅ Done | Native maps (iOS/Android); web uses styled grid mock |
+| Draggable bottom sheet on map | ✅ Done | PanResponder + spring snap |
+| Filter chips — Open Now | ✅ Done | Correctly filters by `isShopCurrentlyOpen()` |
+| Filter chips — Nearest, Best Rated | ⚠️ Half-built | Chips render but do not sort/filter — **no-ops** |
+| Search (products + shops) | ✅ Done | Live text search across `shopProducts` state |
+| Search filters / sort | ❌ Not built | No category filter, price range, or distance sort |
+| Shop detail with category tabs | ✅ Done | Tabs, product grid, hours, distance |
+| Product detail | ✅ Done | Stock, weight/unit select, mock reviews |
+| Add to cart | ✅ Done | Cross-shop conflict alert, weight modal, AsyncStorage |
+| Cart management | ✅ Done | Qty +/−, remove, pickup/delivery toggle |
+| Checkout | ✅ Done | Address, COD/UPI, shop-closed guard, validation |
+| Order placement | ✅ Done | Creates order in context + AsyncStorage |
+| Order tracking (customer) | ✅ Done | Auto-advance via `setTimeout`; animated map; call/SMS Linking |
+| Order history + reorder | ✅ Done | Full list; reorder repopulates cart |
+| Customer profile | ✅ Done | Static addresses, settings stubs, logout |
+| SK dashboard stats | ✅ Done | Computed from mock data (orders, earnings, pending count) |
+| SK order management (full pipeline) | ✅ Done | pending→accepted→packed→out_for_delivery→delivered |
+| SK inventory CRUD | ✅ Done | Add/edit/delete with confirmation; active/inactive toggle |
+| SK inventory search | ✅ Done | Live filter in inventory list |
+| Global toast notifications | ✅ Done | `ToastProvider` wired in root; `useToast()` hook available |
+| Dark mode | ❌ Not built | Hook is dark-ready; dark palette not defined |
+| Onboarding / first-run flow | ❌ Not built | New users land directly at login with no context |
+| Push notifications | ❌ Not built | `expo-linking` installed; no setup |
+| Real location services | ❌ Not built | `expo-location` installed but never called; distances are static strings |
+| Real-time order updates | ❌ Not built | Status advances via `setTimeout` — no WebSocket / polling |
+| Payment gateway | ❌ Not built | COD/UPI are labels only; no actual integration |
+| Product image upload | ❌ Not built | `expo-image-picker` installed; products use category icon fallbacks |
+| Ratings & review submission | ❌ Not built | Mock reviews shown; no write path |
+| Order cancellation (customer) | ❌ Not built | No cancel action post-placement |
+| Notifications screen | ❌ Not built | No notification list or history |
+| About / Help / FAQ / Terms / Privacy | ❌ Not built | Profile settings rows are non-functional stubs |
+| Offline / no-internet state | ❌ Not built | App silently fails with no error or retry UI |
+
+---
+
+## 1.5 Design System Audit
+
+### Token Palette (`constants/colors.ts` — light only)
+
+| Token | Hex | Role |
+|---|---|---|
+| `primary` | `#2E7D32` | Buttons, active states, headers, shop banner, badges |
+| `secondary` | `#66BB6A` | Defined; **effectively unused** (replaced by `primary + opacity` tints) |
+| `accent` | `#FF9800` | Shopkeeper toggle, pending badges, "Mark Ready" button |
+| `background` | `#FFFFFF` | Screen backgrounds |
+| `card` | `#F5F5F5` | Card surfaces |
+| `muted` | `#F5F5F5` | Input bg, chip bg — **same value as `card`; redundant** |
+| `foreground` | `#212121` | Primary text |
+| `mutedForeground` | `#757575` | Secondary text, placeholders, inactive icons |
+| `border` | `#E0E0E0` | Card borders, dividers, input borders |
+| `destructive` | `#ef4444` | Delete actions, "Closed" badge, reject button |
+| `success` | `#43A047` | Delivered status, positive indicators |
+| `rating` | `#FFB300` | Star icons |
+| `info` | `#1976D2` | Informational badges (defined; rarely used) |
+| `radius` | `12` | Global border radius constant |
+
+**Dark mode:** ❌ `colors.dark` is not defined. `useColors()` always returns the light palette regardless of device appearance setting.
+
+### Typography (in use — no formal scale)
+
+| Semantic role | Family | Size | Weight |
+|---|---|---|---|
+| Hero / Splash title | Inter | 24px | 800 |
+| Screen title | Inter | 22–24px | 700–800 |
+| Section header | Inter | 18–20px | 700 |
+| Card title | Inter | 15–17px | 700 |
+| Body | Inter | 13–14px | 400 |
+| Label / Caption | Inter | 11–12px | 400–600 |
+| Primary button | Inter | 14–15px | 700 |
+
+⚠️ No formal type scale or named type tokens. Font sizes are ad-hoc per screen. The same semantic level (e.g. "card title") differs between screens (15px in ShopCard, 17px in tracking). No `Display` variant exists. Line heights are set ad-hoc.
+
+### Spacing
+
+Informal 4px grid. Common values: 8, 12, 16, 20, 24. No spacing token file. All padding/margin values are magic numbers inside StyleSheet objects. Inner card gaps vary 8–14px with no pattern.
+
+### Border Radius
+
+`colors.radius = 12` is the declared standard. Actual values used across the codebase:
+
+| Value | Used for |
 |---|---|
-| Framework | Expo 54, React Native 0.81.5 |
-| Navigation | Expo Router (file-based, v4) |
-| State | React Context (`AppContext`) + `useState`/`useCallback` |
-| Persistence | `@react-native-async-storage/async-storage` |
-| Map (native) | `react-native-maps` 1.18.0 (`MapView.tsx`) |
-| Map (web) | Custom grid mock (`MapView.web.tsx`) |
-| Icons | `@expo/vector-icons` (Feather set) |
-| Fonts | Inter (400/500/600/700) via `expo-font` |
-| Haptics | `expo-haptics` |
-| Safe area | `react-native-safe-area-context` |
-| Design tokens | `constants/colors.ts` + `hooks/useColors.ts` |
-| Colors | Primary `#2E7D32`, Accent `#FF9800` |
+| 8px | Small chips, input corners, small badges |
+| 10px | Review cards, minor UI elements |
+| **12px** | Most cards — the stated standard |
+| 14px | Some buttons, CartBar |
+| 16px | Rider card, delivery banner |
+| 18px | Login card |
+| 20px+ | Avatar circles, full-round buttons |
 
-### API Server (`artifacts/api-server`)
+⚠️ Six+ distinct radius values with no named scale (sm / md / lg / xl). `colors.radius` is defined but not universally consumed.
 
-| Concern | Library |
-|---|---|
-| Framework | Express 5 |
-| Logging | `pino` + `pino-http` |
-| CORS | `cors` |
-| Build | `esbuild` (CJS bundle) |
-| ORM | Drizzle ORM + PostgreSQL |
-| Validation | Zod v4 + `drizzle-zod` |
+### Shadows
 
-> **Critical finding**: The API server has only one operational endpoint (`GET /api/healthz`). The mobile app makes **zero API calls** — it is entirely self-contained with hardcoded mock data.
+No named shadow scale. Values are magic numbers set independently per component:
 
----
-
-## 4. Application Architecture
-
-### 4.1 Data Flow
-
-```
-AppContext (React Context)
-  ├── MOCK_SHOPS     [4 shops, hardcoded]
-  ├── MOCK_PRODUCTS  [19 products across 4 shops, hardcoded]
-  ├── MOCK_ORDERS    [3 seed orders, hardcoded]
-  ├── cart[]         → AsyncStorage ("kk_cart")
-  └── orders[]       → AsyncStorage ("kk_orders") [merged with seeds on load]
-```
-
-All business logic — cart management, order placement, order status updates — lives entirely inside `AppContext.tsx` (466 lines). There is no network layer.
-
-### 4.2 Route Map
-
-```
-/ (index.tsx)
-└── /splash              Animated logo → auto-navigates to /login after 2.8s
-
-/login                   Phone number + simulated OTP (6-digit), shopkeeper toggle
-
-/(tabs)                  Customer tab navigator (bottom tabs)
-  ├── index.tsx          Map home: full-screen map + draggable bottom sheet + filter chips
-  └── orders.tsx         Order history list with reorder + track buttons
-
-/shop/[id]               Shop detail: category tab bar + product list + CartBar
-/product/[id]            Product detail: description + weight controls or qty controls
-/search                  Full-text search across all products + shops (module-level precompute)
-/cart                    Cart review: item list, delivery toggle, coupon field (UI only), totals
-/checkout                Address input + payment method selection (COD/UPI) → place order
-/tracking/[id]           Order status timeline + animated mock rider map (delivery only)
-
-/(shopkeeper)/dashboard  Stats (today's orders, earnings, pending) + recent order feed
-/(shopkeeper)/orders     Accept/reject new orders, pack, mark ready/dispatched
-/(shopkeeper)/inventory  Local CRUD for products (completely separate from AppContext data)
-```
-
-### 4.3 Authentication Model
-
-Authentication is fully simulated:
-- Phone number field accepts any 10-digit number
-- OTP field accepts any 6 digits
-- `isShopkeeper` is a boolean in `AppContext` toggled via the login screen toggle
-- No session token, no user ID, no backend call
-- "Resend OTP in 30s" is static text — no countdown timer or actual resend logic
-- No customer logout — only shopkeeper has a logout button
-
-### 4.4 Persistence Model
-
-| Key | Stored | Loaded |
+| Component | iOS shadow | Android elevation |
 |---|---|---|
-| `kk_cart` | `cart[]` on every change | On app mount |
-| `kk_orders` | `orders[]` on every change | On app mount (merged with seeds) |
+| Login card | `opacity: 0.08, radius: 8` | 3 |
+| CartBar | `opacity: 0.15, radius: 12` | 8 |
+| Rider bubble | `opacity: 0.5, radius: 8` | 10 |
+| Inventory modal | None | — |
+| Shop detail header | None | — |
 
-Not persisted: `selectedShop`, `deliveryMode`, `isShopkeeper` — all reset to defaults on app restart.
+### Shared Component Audit
 
----
-
-## 5. Data Models
-
-### 5.1 Product
-```typescript
-interface Product {
-  id: string;           // "p1" – "p19"
-  name: string;
-  price: number;        // base price per unit
-  unit: string;         // "packet", "kg", "bag", "pack", etc.
-  image?: string;       // always undefined (no image assets for products)
-  shopId: string;
-  shopName: string;
-  category: string;     // "Dairy" | "Grocery" | "Snacks" | "Bakery" | "Beverages" | "Vegetables"
-  stock: number;
-  description?: string;
-  isWeightBased?: boolean;
-}
-```
-
-### 5.2 CartItem
-```typescript
-interface CartItem extends Product {
-  quantity: number;
-  selectedWeight?: string;  // e.g. "500 g", "1 kg"
-  // price field (inherited) is OVERRIDDEN at add-time for weight-based items
-  // priceOverride is stored as `price`, not a separate field
-}
-```
-
-### 5.3 Shop
-```typescript
-interface Shop {
-  id: string;           // "s1" – "s4"
-  name: string;
-  address: string;
-  lat: number; lng: number;  // hardcoded Delhi coordinates
-  rating: number;
-  distance: string;     // "0.5 km" – static string, not computed from GPS
-  openTime: string; closeTime: string;  // strings only, not enforced
-  isOpen: boolean;      // hardcoded boolean, not computed from openTime/closeTime
-  categories: string[];
-  image?: string;       // always undefined
-}
-```
-
-### 5.4 Order
-```typescript
-interface Order {
-  id: string;            // `o${Date.now()}` — collision-prone at high frequency
-  shopId: string;        // from selectedShop at checkout time
-  shopName: string;
-  items: CartItem[];
-  total: number;         // sum of item.price * item.quantity
-  deliveryFee: number;   // 30 if delivery && total < 200, else 0
-  status: "pending" | "accepted" | "packed" | "out_for_delivery" | "delivered" | "rejected";
-  mode: "pickup" | "delivery";
-  address?: string;
-  paymentMethod: "cod" | "upi";
-  placedAt: string;      // ISO timestamp string
-}
-```
-
----
-
-## 6. Component Inventory
-
-| Component | File | Purpose |
+| Component | Shared? | Notes |
 |---|---|---|
-| `ProductCard` | `components/ProductCard.tsx` | Product list item: tap-to-navigate left side, add/qty buttons right side. Handles weight-based vs unit-based branching. |
-| `CartBar` | `components/CartBar.tsx` | Sticky bottom bar shown on shop screen when cart has items. Shows count + total. |
-| `AddToCartModal` | `components/AddToCartModal.tsx` | Modal for weight-based products: radio (Enter Quantity / Enter Price), unit picker (kg/gm), price summary. `animationType="slide"` for web compat. |
-| `MapView` (native) | `components/MapView.tsx` | `react-native-maps` MapView with custom shop pins. |
-| `MapView` (web) | `components/MapView.web.tsx` | Grid of shop cards as map substitute on web. |
-| `ShopCard` | `components/ShopCard.tsx` | Shop card used in search results / list views. |
-| `ErrorBoundary` | `components/ErrorBoundary.tsx` | React class error boundary. |
-| `ErrorFallback` | `components/ErrorFallback.tsx` | Error UI shown by ErrorBoundary. |
-| `KeyboardAwareScrollViewCompat` | `components/KeyboardAwareScrollViewCompat.tsx` | Platform-aware keyboard scroll wrapper. |
+| Button (primary) | ❌ Not shared | Duplicated as `StyleSheet` per screen |
+| Card container | ❌ Not shared | Border + bg + radius duplicated 10+ times |
+| Input field | ❌ Not shared | Duplicated in login, checkout, inventory, search |
+| Bottom sheet | ❌ Not shared | Custom PanResponder implementation only on Discover |
+| Badge / chip | ❌ Not shared | Category chips, filter chips, status badges all ad-hoc |
+| Skeleton loader | ❌ Does not exist | No loading states on any list screen |
+| Empty state | ⚠️ Partial | Cart has an empty state; other lists (orders, search pre-query) do not show helpful empty states |
 
----
+### Inconsistencies Flagged
 
-## 7. Bugs & Issues Found
-
-### CRITICAL — Data Integrity
-
-| # | Bug | Location | Impact |
-|---|---|---|---|
-| B1 | **Cross-shop cart**: No validation prevents adding products from multiple shops simultaneously. `placeOrder()` attaches `selectedShop` at checkout time, so a mixed cart produces an order with an incorrect/misleading `shopId`. | `AppContext.tsx:362–388`, `cart.tsx` | Orders with mixed shop items are malformed; shopkeeper sees items not from their store. |
-| B2 | **Closed shops are fully orderable**: `s3 (Mohan Kirana)` has `isOpen: false` but products are freely added to cart and ordered. No guard anywhere in the purchase flow. | `AppContext.tsx:104`, shop `[id].tsx`, `cart.tsx` | User can place orders at closed stores. |
-| B3 | **Inventory completely disconnected from product catalogue**: `(shopkeeper)/inventory.tsx` maintains its own local `INITIAL_PRODUCTS` state (not in `AppContext`). Shopkeeper edits/deletes/adds products have zero effect on the customer-facing product list. | `inventory.tsx:25–32`, `AppContext.tsx:134` | Inventory management is non-functional in terms of real app behaviour. |
-| B4 | **`placeOrder()` ignores `selectedShop` being null**: If cart is populated via reorder (which doesn't set `selectedShop`) and user navigates to checkout, the order gets `shopId: ""` and `shopName: ""`. | `AppContext.tsx:404–426`, `orders.tsx:36–42` | Orders can be created with no shop identity. |
-
-### HIGH — Logic / UX Errors
-
-| # | Bug | Location | Impact |
-|---|---|---|---|
-| B5 | **Reorder adds items without clearing existing cart and without setting `selectedShop`**: Each reorder item is individually `addToCart`-ed, which can merge into an existing cross-shop cart. | `(tabs)/orders.tsx:35–42` | Cart corruption, wrong shopId on resulting order. |
-| B6 | **Order ID collision**: IDs use `` `o${Date.now()}` `` (millisecond timestamp). Rapid successive orders (e.g. automation, tests) produce duplicate IDs. | `AppContext.tsx:409` | Duplicate IDs cause `setOrders` map to corrupt orders, and `AsyncStorage` merge logic breaks. |
-| B7 | **Earnings include rejected orders**: `ShopkeeperDashboard` computes earnings as `todaysOrders.reduce(sum + o.total + o.deliveryFee)` without filtering out rejected orders. | `(shopkeeper)/dashboard.tsx:40` | Shopkeeper sees inflated earnings. |
-| B8 | **`isOpen` is hardcoded, not computed from `openTime`/`closeTime`**: Shops don't automatically go offline outside their trading hours. | `AppContext.tsx:73–130` | Store availability is always stale/wrong. |
-| B9 | **"Resend OTP" countdown is static text**: Shows "Resend OTP in 30s" permanently; no timer, no actual resend capability. | `login.tsx:156` | Misleading UI; users cannot actually resend an OTP. |
-| B10 | **Checkout accepts empty address for delivery**: No validation that `address` is non-empty when `deliveryMode === "delivery"`. | `checkout.tsx` | Orders placed with blank delivery address. |
-
-### MEDIUM — TypeScript / Code Quality
-
-| # | Bug | Location | Impact |
-|---|---|---|---|
-| B11 | **Known TS type errors**: `router.push("/shop/" + shop.id)` and `router.push("/tracking/" + order.id)` produce type errors because Expo Router expects literal typed paths. | `(tabs)/index.tsx:96`, `(tabs)/orders.tsx:117` | Build-time warnings; safe at runtime but hides real type errors. |
-| B12 | **`ALL_PRODUCTS` in search computed at module level**: `const ALL_PRODUCTS = SHOPS.flatMap(...)` runs once when the module loads. If mock data changes (or real data is introduced), search won't reflect it. | `search.tsx:18–20` | Search becomes stale on any dynamic product data. |
-| B13 | **Weight-based price display in `ProductCard`**: Shows `product.price` (base per-kg price) in the card even after a weight selection, rather than the computed price the user confirmed in the modal. | `ProductCard.tsx:90` | Price shown in list doesn't match cart price for weight-based items. |
-| B14 | **`useNativeDriver: false` used for all animations**: The tracking screen and splash use `useNativeDriver: false` for positional animations. On complex animated scenes this forces JS-thread animation (drops frames under load). | `tracking/[id].tsx`, `splash.tsx` | Performance degradation on mid-range Android. |
-| B15 | **Shopkeeper dashboard `SHOP` constant is hardcoded**: The dashboard always shows "Gupta Kirana Store / Ramesh Gupta" regardless of which account is logged in. | `(shopkeeper)/dashboard.tsx:17–25` | Every shopkeeper sees the same store name. |
-
-### LOW — Polish / Missing Features
-
-| # | Issue | Notes |
+| ID | Issue | Severity |
 |---|---|---|
-| B16 | **No dark mode implementation**: `useColors` hook supports dark via `colors.dark` key, but `constants/colors.ts` ships only a `light` palette. | Dark mode hook is wired but inert. |
-| B17 | **No product images**: Both `Product.image` and `Shop.image` are typed as `string | undefined` but are always `undefined`. All product visuals use category-colored Feather icons. | Significant visual limitation. |
-| B18 | **No accessibility labels**: No `accessibilityLabel`, `accessibilityRole`, or `accessibilityHint` on any interactive elements. | Fails basic a11y audit. |
-| B19 | **No offline/network error handling**: App doesn't need it now (no network calls) but no infrastructure exists for when the API is connected. | Technical debt. |
-| B20 | **Coupon/promo code field in cart is UI-only**: Input exists and accepts text but nothing processes it. | User expectation mismatch. |
-| B21 | **No customer profile/account screen**: No way to view or edit phone number, saved addresses, or preferences after login. | Incomplete user journey. |
-| B22 | **Payment is selection-only**: UPI and COD are selectable but neither triggers any real payment flow. | Expected by users to do something. |
-| B23 | **Tracking auto-advance**: Tracking screen shows current order status correctly but doesn't auto-advance status over time. User must manually go to shopkeeper mode to advance. | Demo-mode limitation. |
-| B24 | **`isShopkeeper` not persisted**: App resets to customer mode on every restart. Shopkeeper must toggle and re-login. | UX friction for shopkeeper users. |
+| I-01 | `CATEGORY_COLORS` and `CATEGORY_ICONS` duplicated in `ProductCard.tsx` and `product/[id].tsx` | Medium |
+| I-02 | `colors.card` and `colors.muted` are the same hex value — tokens with identical meaning | Low |
+| I-03 | Dark mode palette not defined — always renders in light | Critical |
+| I-04 | No shared `Card` component — bg/border/radius duplicated per screen | Medium |
+| I-05 | No shared `Button` component — CTA styles duplicated per screen | Medium |
+| I-06 | Border radius has 6+ values with no named scale | Medium |
+| I-07 | Shadow values are magic numbers, inconsistent across components | Low |
+| I-08 | "Nearest" and "Best Rated" filter chips on Discover are non-functional | High |
+| I-09 | Profile settings rows (Notifications, Language, Help, Privacy) are stubs | High |
+| I-10 | `colors.secondary` defined but effectively unused throughout the app | Low |
+| I-11 | No skeleton/shimmer loading states on any screen | High |
+| I-12 | No offline / no-internet error handling anywhere | High |
 
 ---
 
-## 8. Architecture Gaps
+## 1.6 Reference Apps
 
-### 8.1 No Real Backend Integration
-The API server (`artifacts/api-server`) exists with:
-- Express 5 boilerplate
-- Pino logging
-- CORS, JSON body parsing
-- Drizzle ORM + PostgreSQL wired in lib packages
-- **Only route**: `GET /api/healthz`
+Kirana Konnect operates in the **hyperlocal grocery / q-commerce** segment. The best-in-class Indian references:
 
-The mobile app never calls any API. Every data source is a hardcoded constant or in-memory state.
+### 1. Blinkit — Primary Reference (Category-first hyperlocal)
+- **Category-first home**: Horizontal scrolling category shortcuts above product rows — faster than map browsing for returning users
+- **Search with recent + trending**: Pre-populated state before first keystroke
+- **MRP vs selling price + savings badge**: Visible value communication on every product card
+- **Distinct order confirmation screen**: Celebration moment before tracking begins (Kirana Konnect skips this — goes straight from checkout to tracking)
+- **Substitution suggestions**: Out-of-stock fallback offers in cart
 
-### 8.2 No Authentication Infrastructure
-- No JWT / session token
-- No user record
-- No phone number verification (Twilio, Firebase Auth, etc.)
-- `isShopkeeper` is a client-side boolean with no server-side validation
+### 2. Zepto — Secondary Reference (Speed + trust)
+- **ETA as a headline feature**: Prominent delivery promise displayed on the home screen
+- **Compact 2×4 category grid**: Faster than a horizontal scroll for new users
+- **Slot-based delivery time selection**: Lets users schedule delivery windows on checkout
+- **Cart drawer**: Slide-out panel keeps shop context while browsing
 
-### 8.3 No Push Notifications
-Order status changes happen locally via `updateOrderStatus()`. In a real deployment, customer devices need to receive push notifications when the shopkeeper advances an order.
+### 3. Swiggy Instamart — Tracking + Discovery Reference
+- **Live ETA countdown on tracking**: Large, real-time countdown (not just a static label)
+- **Rider photo + name + rating**: Builds trust during the delivery window
+- **Map with shop coverage radius**: Visual hyperlocal boundary on discovery screen
+- **"Add more items" on tracking screen**: Upsell opportunity during fulfilment window
 
-### 8.4 No Real Map / GPS
-- Native map (`MapView.tsx`) uses `react-native-maps` but shop coordinates are hardcoded Delhi lat/lng
-- No user location permission requested
-- Distance strings are hardcoded ("0.5 km") — not computed from actual GPS
-- Web fallback is a card grid, not a real map
+### 4. JioMart (Kirana Focus)
+- **Shopkeeper guided onboarding**: Multi-step registration (shop photo, GSTIN, address verification)
+- **Payout + bank account setup** for shopkeeper earnings withdrawal
+- **Bulk inventory import**: CSV upload for large catalogues
 
-### 8.5 Shopkeeper ↔ Customer Data Isolation
-The shopkeeper inventory screen operates on its own local state (`INITIAL_PRODUCTS` in `inventory.tsx`). It has no connection to `AppContext.MOCK_PRODUCTS`. This means:
-- Adding a product in inventory doesn't make it appear in the customer app
-- Marking a product inactive doesn't hide it for customers
-- Stock changes have no effect on what customers see
-
----
-
-## 9. Positive Findings (What Works Well)
-
-| Strength | Detail |
-|---|---|
-| Clean component separation | ProductCard, CartBar, AddToCartModal are well-isolated and reusable |
-| Weight-based product flow | `isWeightBased` detection, `getWeightOptions()`, modal with quantity/price modes, and price override mechanism are correctly implemented end-to-end |
-| Animated tracking screen | Rider animation with waypoint interpolation, bob effect, distance countdown, and pulse animation is impressive for a demo |
-| Design system | Consistent color tokens via `useColors`, Inter fonts, and `#2E7D32`/`#FF9800` brand palette applied uniformly |
-| Draggable bottom sheet | Custom `PanResponder` snap-to-position sheet on home screen is smooth and platform-aware |
-| Expo Router structure | File-based routing with `(tabs)` and `(shopkeeper)` route groups is clean and conventional |
-| Haptic feedback | `expo-haptics` used appropriately on add-to-cart, accept/reject order, and key CTAs |
-| Error boundary | `ErrorBoundary` + `ErrorFallback` present at app root |
-| AsyncStorage merge strategy | Cart and orders are persisted; orders merge with seeds on load to avoid duplicate mock IDs |
-| Platform guards | `Platform.OS !== "web"` guards on haptics, `useNativeDriver`, and layout padding are consistently applied |
+### 5. Meesho / Dukan — Small Business Reference (Inventory UX)
+- **Catalogue photography tips**: In-app guidance for product image quality
+- **Price suggestion engine**: "Similar products sell for ₹X" nudges
+- **Share product / shop link**: Social sharing for organic discovery
 
 ---
 
-## 10. File-Level Summary
-
-| File | Lines | Status | Notes |
-|---|---|---|---|
-| `context/AppContext.tsx` | 466 | Functional | Central data hub; needs real API integration |
-| `app/(tabs)/index.tsx` | 543 | Functional | Home map + sheet; TS push type error |
-| `app/(tabs)/orders.tsx` | 267 | Functional | Reorder bug (B5); TS push type error |
-| `app/shop/[id].tsx` | ~350 | Functional | Allows ordering from closed shops (B2) |
-| `app/product/[id].tsx` | ~300 | Functional | Bug B13 fixed (priceOverride→price) |
-| `app/cart.tsx` | ~350 | Functional | Coupon UI-only (B20), no cross-shop guard (B1) |
-| `app/checkout.tsx` | ~300 | Functional | No address validation (B10), no real payment (B22) |
-| `app/tracking/[id].tsx` | 849 | Functional | Largest file; mock rider animation works well |
-| `app/search.tsx` | 261 | Functional | Module-level precompute (B12) |
-| `app/login.tsx` | 328 | Functional | Simulated auth; static resend text (B9) |
-| `app/splash.tsx` | ~100 | Functional | Animated logo, auto-navigates |
-| `app/(shopkeeper)/dashboard.tsx` | 393 | Functional | Hardcoded SHOP (B15), earnings bug (B7) |
-| `app/(shopkeeper)/orders.tsx` | 320 | Functional | Order status management works correctly |
-| `app/(shopkeeper)/inventory.tsx` | 745 | Non-functional | Largest screen; completely isolated from catalogue (B3) |
-| `components/ProductCard.tsx` | 300 | Functional | Price display bug (B13) |
-| `components/AddToCartModal.tsx` | ~300 | Functional | Correct weight/price logic |
-| `components/CartBar.tsx` | 87 | Functional | Clean and correct |
-| `components/MapView.tsx` | ~100 | Functional | Native map with shop pins |
-| `components/MapView.web.tsx` | ~100 | Functional | Web grid fallback |
-| `hooks/useColors.ts` | 25 | Functional | Dark mode hook wired but inert (B16) |
-| `artifacts/api-server/src/app.ts` | 34 | Stub | Only health endpoint; not used by app |
-
----
-
-## 11. Risk Register
-
-| Risk | Severity | Likelihood | Mitigation Needed |
-|---|---|---|---|
-| Cart corruption from cross-shop orders | High | Certain (no guard) | Shop-lock enforcement at cart add |
-| Orders placed at closed shops | High | High | `isOpen` check at add-to-cart or checkout |
-| Inventory/catalogue disconnect | High | Certain | Merge into shared AppContext or real API |
-| No real auth = no user data security | High | Certain | Firebase/Twilio OTP + JWT session |
-| Order ID collision | Medium | Low in demo | `nanoid` or UUID |
-| Null `selectedShop` at checkout | Medium | Reproducible via reorder | Guard in `placeOrder` + reorder flow fix |
-| Earnings inflation from rejected orders | Medium | Reproducible | Filter by non-rejected status |
-| Static `isOpen` fields | Medium | Certain | Compute from `openTime`/`closeTime` + system time |
-
----
-
-## 12. Discovery Summary
-
-Kirana Konnect is a **high-fidelity prototype** with an impressive visual polish and a complete customer + shopkeeper UI walkthrough. However, it operates entirely in mock mode with no real backend integration, no authentication, and several data integrity bugs that would surface immediately in production use.
-
-**The three most impactful issues to address before any real release are:**
-1. Cross-shop cart enforcement (B1)
-2. Closed-shop ordering prevention (B2)
-3. Shopkeeper inventory ↔ customer catalogue synchronisation (B3)
-
-**The foundational infrastructure gaps (real auth, real API, real payments, real map) are the Phase 2–4 planning items.**
-
----
-
-*End of Phase 1 Discovery. Ready for Phase 2 when approved.*
+*End of Phase 1 — Discovery*
+*Output file: `01_DISCOVERY.md`*

@@ -1,0 +1,425 @@
+# 🎨 Complete Design Audit, UI/UX Redesign & Implementation Prompt
+
+> **How to use:** Copy this entire prompt into Claude Code at the root of your project. The AI will execute it phase-by-phase. This prompt is heavier than a normal audit — it goes from research → design → implementation, end-to-end. Take a `git commit` checkpoint before starting.
+
+---
+
+## 🎯 ROLE & MISSION
+
+You are a **Senior Product Designer + UI/UX Specialist + Full-Stack Engineer** rolled into one role, with 10+ years of experience designing and shipping production-grade mobile and web applications. You have the eye of a designer, the rigor of a researcher, and the hands of a builder.
+
+I am handing you an application that is **partially built**. It has:
+- Many incomplete user flows
+- Missing screens and missing design elements
+- Features that are half-implemented or lack proper detailing
+- UI inconsistencies and missing UX polish
+- Code that needs completion in multiple places
+
+Your job is to:
+1. **Research** the app thoroughly to understand what exists and what's missing
+2. **Design** every missing piece (flows, screens, components, micro-interactions)
+3. **Implement** all of it in code, end-to-end
+4. **Complete** every half-finished feature so the entire app is shippable
+
+You will operate in **6 strict sequential phases**. You are **forbidden** from writing production code until **Phases 1–4 are complete and I have approved the design plan**. After approval, Phase 5 and 6 will be full implementation.
+
+Your tone must be that of a professional consultant — direct, evidence-based, no fluff, no false praise. Be opinionated where opinions matter (design choices, UX patterns). Cite real-world references when proposing patterns.
+
+---
+
+## 📋 PHASE 1 — APPLICATION DISCOVERY & DESIGN RESEARCH (Read-only)
+
+**Goal:** Build a complete mental model of the app — what it does, who uses it, how it's structured, and what design system (if any) is in use.
+
+Do the following, in order:
+
+### 1.1 Project & Tech Stack Map
+- List the full folder tree (depth 4 minimum).
+- Detect: framework, language, styling system (Tailwind / styled-components / CSS modules / inline), component library (shadcn / MUI / Chakra / custom), icon library, animation library, navigation library.
+- List the design tokens currently in use (colors, fonts, spacing scale, border radius, shadows) by scanning theme files, tailwind config, or constants.
+
+### 1.2 Application Purpose & User Identification
+- Write a 5–7 sentence summary of what this application does in plain English.
+- Identify every user persona (customer, admin, vendor, guest, etc.) and what each one is trying to achieve.
+- List the core value proposition the app is meant to deliver.
+
+### 1.3 Existing Screen Inventory
+- Walk through every screen / route / page that currently exists.
+- For each screen, document:
+  - **Screen name**
+  - **Route / path**
+  - **Purpose** (what is this screen for?)
+  - **Components used**
+  - **Entry points** (how does the user get here?)
+  - **Exit points** (where can the user go from here?)
+  - **State of completion** (Complete / Partial / Skeleton / Broken)
+
+### 1.4 Existing Feature Inventory
+- List every feature that currently exists in the codebase.
+- For each feature, mark its status: **Done / Half-built / Broken / Stub-only**.
+- Note which features have backend/API support and which are frontend-only mockups.
+
+### 1.5 Design System Audit
+- Is there a documented design system? If yes, document it.
+- If not, reverse-engineer the implicit design system by scanning the code:
+  - Color palette in use
+  - Font families, sizes, weights
+  - Spacing patterns (4px / 8px grid?)
+  - Border radius patterns
+  - Shadow patterns
+  - Common component patterns (buttons, cards, inputs)
+- Flag any inconsistencies in the implicit system.
+
+### 1.6 Reference Apps
+- Based on the app's purpose, identify 3–5 best-in-class reference apps in the same category (e.g., for food delivery: Zomato, Swiggy, DoorDash; for e-commerce: Amazon, Flipkart, Meesho; for fintech: PhonePe, GPay, Cred).
+- Document what design patterns those apps use that would be relevant.
+
+**Output File:** Save all findings as `01_DISCOVERY.md` in the project root.
+
+🛑 **STOP after Phase 1.** Show me the file. Wait for me to say "proceed to Phase 2".
+
+---
+
+## 🔍 PHASE 2 — DESIGN & FLOW GAP ANALYSIS (Read-only)
+
+**Goal:** Find every design-related gap — missing flows, missing screens, missing UI states, missing micro-interactions, incomplete detailing.
+
+### 2.1 Missing User Flows
+For each user persona, list flows that *should* exist for a production-grade app but are currently missing or incomplete. Examples:
+- Signup → OTP verification → Profile completion → First-time onboarding
+- Forgot password → Email/SMS → Reset → Confirmation
+- Add to cart → Checkout → Payment → Order success → Order tracking
+- Empty state → Help / Guide → First action
+- Logout → Re-login → Session restoration
+- Account deletion → Confirmation → Data export option
+
+For every missing flow, document:
+- **Flow name**
+- **Trigger** (when does this flow start?)
+- **Steps** (screen by screen)
+- **Currently missing pieces**
+- **Priority** (Must / Should / Nice)
+
+### 2.2 Missing Screens
+List every screen that *should* exist but doesn't. Examples:
+- Splash / launch screen
+- Onboarding carousel (2–4 slides)
+- Login / Signup / OTP / Forgot password
+- Profile / Edit profile / Change password
+- Notifications screen + notification settings
+- Search results + filters + sort
+- Empty cart / Empty wishlist / No results / No internet
+- 404 / Error / Maintenance
+- About / Help / FAQ / Contact / Terms / Privacy
+- Order history / Order detail / Order tracking
+- Settings (theme, language, notifications, privacy)
+- Logout confirmation
+
+### 2.3 Missing UI States (per existing screen)
+For every screen that already exists, check which of these states are missing:
+- Loading (skeleton / spinner / shimmer)
+- Empty (no data + helpful CTA)
+- Error (with retry)
+- Success (toast / animation / confirmation)
+- Offline / no-internet
+- Permission denied (camera, location, notifications)
+- Session expired
+
+### 2.4 Missing Components & Design Elements
+Catalog reusable components that are missing or inconsistent:
+- Button variants (primary, secondary, tertiary, destructive, disabled, loading)
+- Input variants (text, password with eye toggle, search, OTP, phone with country code)
+- Cards (product card, list card, info card)
+- Modals / Bottom sheets / Drawers
+- Toasts / Snackbars / Alerts / Banners
+- Tabs / Segmented controls / Chips / Filter pills
+- Avatars / Badges / Status indicators
+- Skeletons for every list / detail screen
+- Pull-to-refresh indicator
+- Infinite scroll / pagination indicator
+
+### 2.5 Missing Micro-interactions
+- Button press feedback (scale / opacity / haptic)
+- Screen transitions (slide / fade / shared element)
+- Loading transitions (skeleton → content)
+- Form validation animations (shake on error, check on success)
+- Empty state animations (subtle illustrations)
+- Pull-to-refresh animation
+- Like / favorite / cart count animations
+- Step-by-step progress indicators (multi-step forms, checkout)
+
+### 2.6 Missing Detailing in Existing Features
+Walk through each existing feature and list what's underdone:
+- Forms without validation / without error messages / without inline help
+- Lists without pagination / search / filter / sort
+- Detail screens missing key information sections
+- Buttons without disabled / loading states
+- Images without placeholder / fallback
+- Text without truncation handling
+- Lists without dividers / empty states
+- Modals without proper close behavior (tap outside, swipe down, back button)
+- Forms without keyboard handling (auto-focus, return key, dismiss)
+- Numbers / dates / currencies not formatted properly
+
+### 2.7 Visual & Consistency Issues
+- Inconsistent spacing across screens (random margins / padding)
+- Typography drift (same hierarchy with different sizes)
+- Color usage that breaks the design system
+- Misaligned elements, off-grid items
+- Different styles for the same component across screens
+- Icon inconsistencies (mixing outline & filled, different stroke widths)
+- Inconsistent corner radii on cards / buttons
+- Inconsistent shadows / elevation
+
+### 2.8 Accessibility & Responsiveness Gaps
+- Touch targets smaller than 44×44 px
+- Text under 14 px for body content
+- Color contrast failing WCAG AA
+- Missing alt text on images
+- No safe-area handling (notch, home indicator)
+- Layout breaking on small screens (iPhone SE) or tablets
+- Landscape mode not handled
+
+**Output File:** Save all findings as `02_DESIGN_GAPS.md`, organized into the 8 sections above. For each gap, include: file/screen reference (if applicable), severity (Critical / High / Medium / Low), and a one-line recommendation.
+
+🛑 **STOP after Phase 2.** Show me the file. Wait for me to say "proceed to Phase 3".
+
+---
+
+## 🎨 PHASE 3 — UI/UX DESIGN SPECIFICATION (Read-only, design output)
+
+**Goal:** Design every missing piece. Output design specs in text form (no code yet) that anyone could hand to a developer or implement directly.
+
+### 3.1 Design System Lock-Down
+First, finalize the design system that everything will be built on. Document:
+
+- **Color Palette**
+  - Primary, primary-dark, primary-light
+  - Secondary / Accent
+  - Neutral scale (50, 100, 200, … 900)
+  - Semantic: success, warning, error, info
+  - Background, surface, text-primary, text-secondary, text-disabled, border
+  - Dark mode counterparts (if app supports dark mode)
+
+- **Typography Scale**
+  - Display, H1, H2, H3, H4, Body-Large, Body, Body-Small, Caption, Label
+  - Font family, size, weight, line-height for each
+  - Pick a primary font and a fallback stack
+
+- **Spacing Scale** (e.g., 4, 8, 12, 16, 20, 24, 32, 40, 48, 64)
+
+- **Border Radius Scale** (e.g., sm 4, md 8, lg 12, xl 16, full 9999)
+
+- **Shadow Scale** (sm, md, lg, xl with exact values)
+
+- **Animation Tokens** (durations: 150 / 200 / 300 ms; easings: ease-out, ease-in-out)
+
+- **Z-index Scale** (base, dropdown, sticky, modal-backdrop, modal, toast)
+
+If a partial design system already exists, extend it — don't replace it unless inconsistencies force a reset.
+
+### 3.2 Component Library Spec
+For every missing or inconsistent component identified in Phase 2.4, write a spec:
+- Component name
+- Variants (primary / secondary / etc.)
+- States (default / hover / pressed / disabled / loading / error)
+- Props / API
+- Visual description (size, padding, colors, radius, shadow)
+- Behavior (animations, transitions, accessibility)
+
+### 3.3 Screen-by-Screen Designs
+For every missing screen and every screen needing redesign, output a text-based design spec:
+
+```
+SCREEN: [Name]
+ROUTE: [/path]
+PURPOSE: [one line]
+LAYOUT:
+  Header: [description]
+  Body: [section-by-section description]
+  Footer / CTA: [description]
+ELEMENTS:
+  - [Element 1: type, content, behavior]
+  - [Element 2: ...]
+STATES:
+  - Loading: [description]
+  - Empty: [description]
+  - Error: [description]
+  - Success: [description]
+INTERACTIONS:
+  - [Interaction 1: trigger → outcome]
+  - [Interaction 2: ...]
+TRANSITIONS:
+  - Enter: [animation]
+  - Exit: [animation]
+NAVIGATION:
+  - Entry from: [...]
+  - Exit to: [...]
+REFERENCE: [similar pattern from reference app, if applicable]
+```
+
+### 3.4 User Flow Diagrams (Text-Based)
+For every flow identified in Phase 2.1, output a step-by-step diagram:
+
+```
+FLOW: [Name]
+TRIGGER: [event]
+STEP 1: [Screen] → user does [X] → goes to STEP 2
+STEP 2: [Screen] → user does [Y] → goes to STEP 3
+…
+SUCCESS END: [destination]
+FAILURE FORKS: [error handling]
+```
+
+### 3.5 Micro-Interaction Specs
+For every micro-interaction identified in Phase 2.5, specify:
+- Trigger
+- Duration
+- Easing
+- Visual change (transform / opacity / color)
+- Haptic feedback (if applicable)
+
+**Output File:** Save as `03_DESIGN_SPEC.md`, structured into the 5 sections above. This file should be detailed enough that any developer could implement everything in it without further questions.
+
+🛑 **STOP after Phase 3.** Show me the file. Wait for me to say "proceed to Phase 4".
+
+---
+
+## 🗺️ PHASE 4 — IMPLEMENTATION PLAN (Read-only)
+
+**Goal:** Convert all design specs + missing-feature completion work into a clear, prioritized execution plan.
+
+### 4.1 Work Package Breakdown
+Break all work into Work Packages (WPs). For each WP:
+
+- **WP-ID** (WP-001, WP-002…)
+- **Title**
+- **Category** (Design System / Component / Screen / Flow / Feature Completion / Bug Fix / Polish)
+- **Description**
+- **Files to create/modify**
+- **Dependencies on other WPs**
+- **Effort estimate** (S / M / L / XL)
+- **Acceptance criteria** (specific, testable bullets)
+
+### 4.2 Execution Order
+Group WPs into execution waves:
+
+- **Wave 1 — Foundation:** Design tokens, theme setup, base components (button, input, card, modal). Nothing else can be built until this is done.
+- **Wave 2 — Core Flows:** Auth, onboarding, primary user journey end-to-end with all states.
+- **Wave 3 — Feature Completion:** Finish all half-built features identified in Phase 1.4.
+- **Wave 4 — Secondary Screens:** Profile, settings, notifications, help, etc.
+- **Wave 5 — Polish:** Micro-interactions, animations, empty / error / loading states everywhere.
+- **Wave 6 — Accessibility & Responsiveness:** Touch targets, contrast, safe areas, small / large screens.
+
+### 4.3 Risks & Open Questions
+List any decisions you need from me before proceeding:
+- Brand color confirmation
+- Dark mode required or not
+- Specific third-party integrations to wire up
+- Tone of voice / copywriting style
+
+**Output File:** Save as `04_IMPLEMENTATION_PLAN.md`.
+
+🛑 **STOP after Phase 4.** Show me the plan. Wait for me to **explicitly approve** before any code is written. I may reorder, remove, or add WPs. Answer any open questions in 4.3 before proceeding.
+
+---
+
+## 🛠️ PHASE 5 — IMPLEMENTATION (Code generation allowed)
+
+**Goal:** Execute the approved plan, one Wave at a time, one Work Package at a time within each Wave.
+
+### Rules:
+
+1. Work strictly Wave by Wave. Do not start Wave 2 until Wave 1 is fully verified.
+2. Within a Wave, work WP by WP. Do not batch multiple WPs into one diff unless I explicitly approve.
+3. Before starting each WP, restate:
+   > *"Starting WP-XXX: [title]. Files I will create/modify: [...]. Acceptance criteria: [...]."*
+4. After completing each WP:
+   - Show the full diff or new files
+   - Confirm acceptance criteria are met
+   - Update `05_CHANGELOG.md` with: WP-ID, title, files changed, summary of changes
+5. After every Wave, run a sanity build:
+   - Does the app still compile / build?
+   - Are there any runtime errors on key screens?
+   - Update `05_CHANGELOG.md` with a Wave-completion entry.
+6. **No silent scope expansion.** If during implementation you find something that needs work but is not in the plan, stop and tell me. I'll decide whether to add it.
+7. **Match the existing code style.** Use the same component patterns, naming conventions, folder structure, import order as the existing codebase. Don't refactor for the sake of refactoring.
+8. **Use the design system religiously.** No magic numbers for colors, spacing, or font sizes. Reference tokens from the design system file.
+9. **Build all states for every screen / component you touch.** Loading, empty, error, success — non-negotiable.
+10. **Write the code as if someone else will maintain it.** Clear names, small functions, comments only where logic is non-obvious.
+
+### What "Implementation" Means for Each Category:
+- **Design System:** Create theme file / tailwind config / tokens file with all values from Phase 3.1.
+- **Component:** Create the component with all variants and states from Phase 3.2.
+- **Screen:** Build the full screen including loading / empty / error / success states.
+- **Flow:** Wire up navigation between screens, pass state correctly, handle back navigation and deep linking.
+- **Feature Completion:** Finish backend ↔ frontend integration, add missing validation, error handling, success feedback.
+- **Bug Fix:** Identify root cause, fix it, verify the fix doesn't break anything else.
+- **Polish:** Add the micro-interactions, animations, transitions specified in Phase 3.5.
+
+### Output Files:
+- All updated source code
+- `05_CHANGELOG.md` (running log)
+- After Wave completion, a short Wave Summary appended to `05_CHANGELOG.md`
+
+---
+
+## 🧪 PHASE 6 — FINAL QA & POLISH PASS
+
+**Goal:** After all Waves are complete, do a full sweep to catch anything that slipped through.
+
+### 6.1 Cross-Screen Consistency Check
+- Walk through every screen one more time.
+- Verify spacing, typography, colors are consistent.
+- Verify every component uses the design system tokens, not hard-coded values.
+- Verify every screen has all required states.
+
+### 6.2 Flow Walk-Throughs
+- Walk through every user flow end-to-end as if you were a real user.
+- Verify navigation works, back button works, state persists where expected.
+- Verify success and failure paths both work.
+
+### 6.3 Edge Case Sweep
+- Long text / overflow handling
+- Empty data scenarios
+- Network failure / slow network
+- Rapid taps / double submissions
+- Forms with all invalid / all valid / mixed inputs
+
+### 6.4 Accessibility Pass
+- Touch targets ≥ 44 px
+- Contrast ratios meeting WCAG AA
+- Keyboard navigation (web) / TalkBack & VoiceOver labels (mobile)
+- Focus management on modals / drawers
+
+### 6.5 Performance Pass
+- Image optimization (lazy loading, correct sizes)
+- List virtualization where lists exceed ~30 items
+- Removal of unnecessary re-renders
+- Bundle size check
+
+### Output File:
+- `06_COMPLETION_REPORT.md` containing:
+  - Summary of all work completed
+  - List of any items deferred (with reasons)
+  - Recommendations for next phase of work (if any)
+
+---
+
+## 📌 GLOBAL RULES (apply across all phases)
+
+- ✅ Always cite file paths and (when relevant) line numbers.
+- ✅ Use markdown tables and code blocks generously for clarity.
+- ✅ Be opinionated about design choices — give a recommendation, not options, unless I explicitly ask for options.
+- ✅ Cite reference apps / patterns where helpful (e.g., "modeled after Swiggy's order tracking timeline").
+- ❌ Do not assume — verify by reading the actual code.
+- ❌ Do not generate production code in Phases 1–4.
+- ❌ Do not skip phases. Do not merge phases.
+- ❌ Do not silently expand scope during Phase 5.
+- 🛑 If you are uncertain about my intent or the app's purpose, **ask me before guessing**.
+
+---
+
+## ▶️ START
+
+Begin with **Phase 1 — Application Discovery & Design Research** now.
