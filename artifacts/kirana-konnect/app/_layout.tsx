@@ -13,11 +13,12 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { setBaseUrl } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider } from "@/context/AppContext";
 import { ToastProvider } from "@/context/ToastContext";
+import { supabase } from "@/utils/supabase";
 
 // Point generated API hooks at the deployed backend (e.g. the Render URL).
 // EXPO_PUBLIC_API_URL is baked into the bundle at build time; when unset,
@@ -25,6 +26,13 @@ import { ToastProvider } from "@/context/ToastContext";
 if (process.env.EXPO_PUBLIC_API_URL) {
   setBaseUrl(process.env.EXPO_PUBLIC_API_URL);
 }
+
+// Attach the Supabase session token to every API request. Returns null until
+// the user signs in, in which case no Authorization header is sent.
+setAuthTokenGetter(async () => {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+});
 
 SplashScreen.preventAutoHideAsync();
 

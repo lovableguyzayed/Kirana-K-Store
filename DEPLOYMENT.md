@@ -47,17 +47,27 @@ production application:
 
 ### 1.2 Get the connection string
 
-Go to **Project Settings → Database → Connection string** and copy the
+> This project is already created: `oxekfjyvboccekwjafcq`
+> (https://oxekfjyvboccekwjafcq.supabase.co). The app's Supabase client
+> (`artifacts/kirana-konnect/utils/supabase.ts`) is pre-configured with its
+> URL and publishable key.
+
+In the Supabase dashboard, click **Connect** (top bar) and copy the
 **Transaction pooler** URI (port `6543`):
 
 ```
-postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
+postgresql://postgres.oxekfjyvboccekwjafcq:<PASSWORD>@aws-1-<region>.pooler.supabase.com:6543/postgres
 ```
 
+- **Do NOT use the "Direct connection" string**
+  (`db.oxekfjyvboccekwjafcq.supabase.co:5432`) for Render. Direct connections
+  are **IPv6-only** on Supabase, and Render's outbound network is IPv4 — the
+  server would fail with `ENETUNREACH`/timeout. The poolers are
+  IPv4-compatible.
 - Use the **Transaction pooler (6543)** for the API server — it handles many
   short-lived connections well, which matches how `pg` Pool + Drizzle work here.
-- Use the **Session pooler (5432)** or direct connection when running
-  migrations (`drizzle-kit`), which needs session-level features.
+- Use the **Session pooler (5432)** when running migrations (`drizzle-kit`),
+  which needs session-level features.
 - The server code (`lib/db/src/index.ts`) enables TLS automatically when
   `NODE_ENV=production`; set `DATABASE_SSL=false` only against a local
   Postgres.
@@ -68,14 +78,21 @@ Define your tables in `lib/db/src/schema/` (one file per table, exported from
 `index.ts` — the file documents the expected pattern). Then push the schema:
 
 ```bash
-# From the repo root, using the SESSION pooler / direct connection string:
-DATABASE_URL="postgresql://postgres.<ref>:<password>@...pooler.supabase.com:5432/postgres" \
+# From the repo root, using the SESSION pooler (port 5432) string:
+DATABASE_URL="postgresql://postgres.oxekfjyvboccekwjafcq:<PASSWORD>@aws-1-<region>.pooler.supabase.com:5432/postgres" \
   pnpm --filter @workspace/db run push
 ```
 
 `drizzle-kit push` is fine while iterating. Before real users, switch to
 generated migration files (`drizzle-kit generate` + `drizzle-kit migrate`) so
 schema changes are versioned, reviewable, and reversible.
+
+**About the Supabase CLI** (`supabase login` / `init` / `link`): linking the
+CLI is useful for managing Auth/Storage config and generating types, but it is
+**not required** for this repo's workflow — the database schema is owned by
+Drizzle (`lib/db`), not by Supabase CLI migrations. If you do use both, treat
+Drizzle as the single source of truth for tables and don't create tables
+through the CLI or dashboard, or the two will drift apart.
 
 ### 1.4 Authentication (phone OTP)
 
@@ -173,9 +190,10 @@ Note the web build uses the grid-mock map (`MapView.web.tsx`), not real maps.
 hooks (`lib/api-client-react`) to it. For any production build:
 
 ```bash
-EXPO_PUBLIC_API_URL=https://kirana-api.onrender.com
-EXPO_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co   # once auth/storage are wired
-EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+EXPO_PUBLIC_API_URL=https://kirana-api.onrender.com   # your actual Render URL
+# Optional — utils/supabase.ts already defaults to this project:
+EXPO_PUBLIC_SUPABASE_URL=https://oxekfjyvboccekwjafcq.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable__MTgIhGcPX5QmLFlYFWv-g_X7BsYFq2
 ```
 
 Put these in EAS build profiles (`eas.json` → `build.production.env`) or the
