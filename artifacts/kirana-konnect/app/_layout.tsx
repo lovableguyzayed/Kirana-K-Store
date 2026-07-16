@@ -13,9 +13,18 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { setBaseUrl } from "@workspace/api-client-react";
+
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider } from "@/context/AppContext";
 import { ToastProvider } from "@/context/ToastContext";
+
+// Point generated API hooks at the deployed backend (e.g. the Render URL).
+// EXPO_PUBLIC_API_URL is baked into the bundle at build time; when unset,
+// requests stay relative (same-origin web dev / local proxy).
+if (process.env.EXPO_PUBLIC_API_URL) {
+  setBaseUrl(process.env.EXPO_PUBLIC_API_URL);
+}
 
 SplashScreen.preventAutoHideAsync();
 

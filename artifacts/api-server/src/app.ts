@@ -25,7 +25,14 @@ app.use(
     },
   }),
 );
-app.use(cors());
+// ALLOWED_ORIGINS restricts CORS to a comma-separated list of origins in
+// production; when unset, all origins are allowed (development default).
+const allowedOrigins = (process.env["ALLOWED_ORIGINS"] ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(cors(allowedOrigins.length > 0 ? { origin: allowedOrigins } : {}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
