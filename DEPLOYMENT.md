@@ -245,13 +245,31 @@ bundle at build time, so a changed URL requires a rebuild.
 ## 4. Distributing the app so anyone can download it
 
 The Expo app ships through **EAS Build** (Expo's build service, free tier
-available):
+available). Build profiles are already configured in
+`artifacts/kirana-konnect/eas.json`: the `preview` profile produces a
+directly installable **APK**, the `production` profile produces the `.aab`
+for Google Play, and both bake in `EXPO_PUBLIC_API_URL` pointing at the
+deployed Render API.
 
 ```bash
 cd artifacts/kirana-konnect
-pnpm exec eas login          # create an Expo account first
-pnpm exec eas build:configure
+pnpm dlx eas-cli login    # create an account at https://expo.dev first
+pnpm dlx eas-cli build --platform android --profile preview
 ```
+
+The first build prompts to create the EAS project (writes `projectId` into
+`app.json` — commit that change) and to generate an Android keystore (say
+yes; EAS stores it). When the build finishes (~10–20 min), EAS prints a
+download link + QR code for the APK — open it on any Android phone, allow
+"install unknown apps", and install.
+
+> **Google Maps key required for the map screen.** `react-native-maps` on
+> Android needs a Maps SDK key or the map renders as a blank/gray box
+> (the rest of the app works). Get a key in Google Cloud Console (enable
+> "Maps SDK for Android"), then add it to `app.json`:
+> `"android": { "config": { "googleMaps": { "apiKey": "<key>" } } }`.
+> Restrict the key to Android apps + your package name
+> (`com.kiranakonnect.app`) before shipping.
 
 **Android (the fast path in India):**
 
@@ -259,10 +277,9 @@ pnpm exec eas build:configure
   produces an `.aab`. Create a Google Play Console account ($25 one-time),
   upload, complete the listing (privacy policy URL required), and release.
   `eas submit --platform android` automates the upload.
-- **Direct APK download** (sideload, no store): set the profile's
-  `android.buildType` to `apk` in `eas.json`, build, and host the `.apk`
-  behind a download link on your website. Users must enable "install unknown
-  apps". Fine for early testing; use Play for real distribution.
+- **Direct APK download** (sideload, no store): the `preview` profile above.
+  Host the `.apk` behind a download link on your website. Fine for early
+  testing; use Play for real distribution.
 
 **iOS:** requires an Apple Developer account ($99/yr):
 `eas build --platform ios` + `eas submit --platform ios` → App Store review.
