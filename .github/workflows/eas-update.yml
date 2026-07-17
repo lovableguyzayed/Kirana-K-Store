@@ -1,0 +1,52 @@
+# Publishes an over-the-air (OTA) update whenever app code lands on main.
+# Installed APKs pick up the new JavaScript on their next launch — no
+# rebuild, no reinstall. Native changes (new plugins/permissions) still
+# need a fresh APK from the "EAS Android Build" workflow.
+#
+# Requires the same one-time setup as eas-build.yml (the EXPO_TOKEN
+# repository secret); project linking and updates config happen
+# automatically on each run.
+name: EAS OTA Update
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "artifacts/kirana-konnect/**"
+      - "lib/api-client-react/**"
+      - "pnpm-lock.yaml"
+  workflow_dispatch: {}
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Set up pnpm
+        run: corepack enable
+
+      - name: Set up EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter "@workspace/kirana-konnect..."
+
+      - name: Link or create the EAS project
+        working-directory: artifacts/kirana-konnect
+        run: eas init --non-interactive --force
+
+      - name: Configure over-the-air updates
+        working-directory: artifacts/kirana-konnect
+        run: eas update:configure --non-interactive
+
+      - name: Publish OTA update
+        working-directory: artifacts/kirana-konnect
+        run: eas update --branch preview --auto --non-interactive
