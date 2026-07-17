@@ -27,6 +27,9 @@ function resolveSsl(): pg.PoolConfig["ssl"] {
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: resolveSsl(),
+  // Fail fast with a clear error when the database is unreachable (pg's
+  // default is to wait forever for a connection).
+  connectionTimeoutMillis: 10_000,
 });
 export const db = drizzle(pool, { schema });
 

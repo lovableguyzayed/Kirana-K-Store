@@ -170,6 +170,46 @@ Notes:
   git. `.gitignore` now blocks `.env` files; `.env.example` documents every
   variable.
 
+### 2.1 Troubleshooting a failed deploy
+
+Work through these in order — they cover the failures in likelihood order:
+
+1. **Wrong branch (most common).** All deployment files live on the branch
+   that added them — until that branch is merged, `main` has no `render.yaml`,
+   no pnpm pin, and no Supabase wiring.
+   - *Blueprint*: Render reads `render.yaml` from the repo's **default
+     branch** only. If it isn't on `main`, Blueprint creation fails with
+     "render.yaml not found". Fix: merge the branch into `main` first.
+   - *Manual web service*: check **Settings → Branch** points at a branch
+     that actually contains the deployment setup.
+2. **Root directory set.** Settings → Root Directory must be **empty** (repo
+   root). If it's `artifacts/api-server`, the pnpm workspace install fails
+   (`pnpm-lock.yaml` not found / filter matches nothing).
+3. **Build log says pnpm/corepack failed.** Confirm `NODE_VERSION=24` is set
+   (Environment tab). The `packageManager` field in `package.json` pins
+   pnpm 10.33.0 for corepack.
+4. **Build succeeded but deploy timed out.** That means the health check
+   failed. Confirm Health Check Path is exactly `/api/healthz` and the start
+   command is `node --enable-source-maps artifacts/api-server/dist/index.mjs`.
+5. **Read the log.** Events tab → failed deploy → the last ~30 lines of the
+   build/runtime log name the real cause; everything above is a pattern to
+   match against it.
+
+**Verifying Render ↔ Supabase connectivity.** The server exposes an ops
+endpoint that runs a real query through `DATABASE_URL`:
+
+```bash
+curl https://<your-service>.onrender.com/api/healthz      # server up?
+curl https://<your-service>.onrender.com/api/healthz/db   # database reachable?
+```
+
+`/api/healthz/db` returns `{"status":"ok","database":"connected",...}` when
+Render → Supabase works, and a 503 with the underlying error message
+(`DATABASE_URL must be set`, `ECONNREFUSED`, TLS errors, auth failures) when
+it doesn't. Common fixes: use the **Transaction pooler** string (the direct
+`db.<ref>...` host is IPv6-only and unreachable from Render), and re-check
+the password inside the URL.
+
 ### 2.2 (Optional) Deploy the web version on Render
 
 Expo can export the app for the web. Add a **Static Site** on Render:
