@@ -309,17 +309,17 @@ local commands at all:
 
 **One-time setup for both workflows:**
 
-1. Locally, in `artifacts/kirana-konnect/`:
-   `pnpm dlx eas-cli login`, then `pnpm dlx eas-cli init` (links the repo to
-   an EAS project; writes `extra.eas.projectId` into `app.json`), then
-   `pnpm dlx eas-cli update:configure` (writes `updates.url` into
-   `app.json`). Commit the `app.json` changes.
-2. Create an access token at <https://expo.dev/settings/access-tokens> and
-   add it to the GitHub repo as a secret named `EXPO_TOKEN`
+1. Create a free account at <https://expo.dev>, then create an access token
+   at <https://expo.dev/settings/access-tokens>.
+2. Add it to the GitHub repo as a secret named `EXPO_TOKEN`
    (repo → Settings → Secrets and variables → Actions → New repository
    secret).
-3. Build the first APK *after* step 1 — only builds made with the updates
-   config baked in can receive OTA updates.
+
+That's all — the workflows link/create the EAS project and updates
+configuration automatically on every run, so no local commands are needed.
+(If the automatic `eas init` step ever fails in the Actions log, the manual
+fallback is `pnpm dlx eas-cli init` + `pnpm dlx eas-cli update:configure`
+locally in `artifacts/kirana-konnect/`, then commit `app.json`.)
 
 ---
 

@@ -3,8 +3,9 @@
 # rebuild, no reinstall. Native changes (new plugins/permissions) still
 # need a fresh APK from the "EAS Android Build" workflow.
 #
-# Requires the same one-time setup as eas-build.yml, plus running
-# `eas update:configure` locally once (writes updates.url into app.json).
+# Requires the same one-time setup as eas-build.yml (the EXPO_TOKEN
+# repository secret); project linking and updates config happen
+# automatically on each run.
 name: EAS OTA Update
 
 on:
@@ -37,6 +38,14 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --filter "@workspace/kirana-konnect..."
+
+      - name: Link or create the EAS project
+        working-directory: artifacts/kirana-konnect
+        run: eas init --non-interactive --force
+
+      - name: Configure over-the-air updates
+        working-directory: artifacts/kirana-konnect
+        run: eas update:configure --non-interactive
 
       - name: Publish OTA update
         working-directory: artifacts/kirana-konnect
