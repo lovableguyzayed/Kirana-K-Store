@@ -14,3 +14,91 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Returns all shops
+ * @summary List shops
+ */
+export const ListShopsResponseItem = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  address: zod.string(),
+  lat: zod.number(),
+  lng: zod.number(),
+  rating: zod.number(),
+  openTime: zod.string(),
+  closeTime: zod.string(),
+  isOpen: zod.boolean(),
+  categories: zod.array(zod.string()),
+  image: zod.string().nullish(),
+});
+export const ListShopsResponse = zod.array(ListShopsResponseItem);
+
+/**
+ * Returns a single shop by id
+ * @summary Get a shop
+ */
+export const GetShopParams = zod.object({
+  shopId: zod.coerce.string(),
+});
+
+export const GetShopResponse = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  address: zod.string(),
+  lat: zod.number(),
+  lng: zod.number(),
+  rating: zod.number(),
+  openTime: zod.string(),
+  closeTime: zod.string(),
+  isOpen: zod.boolean(),
+  categories: zod.array(zod.string()),
+  image: zod.string().nullish(),
+});
+
+/**
+ * Returns all active products of a shop
+ * @summary List a shop's products
+ */
+export const ListShopProductsParams = zod.object({
+  shopId: zod.coerce.string(),
+});
+
+export const ListShopProductsResponseItem = zod.object({
+  id: zod.string(),
+  shopId: zod.string(),
+  shopName: zod.string(),
+  name: zod.string(),
+  price: zod.number(),
+  unit: zod.string(),
+  category: zod.string(),
+  stock: zod.number(),
+  description: zod.string().nullish(),
+  image: zod.string().nullish(),
+  isWeightBased: zod.boolean(),
+  isActive: zod.boolean(),
+});
+export const ListShopProductsResponse = zod.array(ListShopProductsResponseItem);
+
+/**
+ * Returns a single product by id
+ * @summary Get a product
+ */
+export const GetProductParams = zod.object({
+  productId: zod.coerce.string(),
+});
+
+export const GetProductResponse = zod.object({
+  id: zod.string(),
+  shopId: zod.string(),
+  shopName: zod.string(),
+  name: zod.string(),
+  price: zod.number(),
+  unit: zod.string(),
+  category: zod.string(),
+  stock: zod.number(),
+  description: zod.string().nullish(),
+  image: zod.string().nullish(),
+  isWeightBased: zod.boolean(),
+  isActive: zod.boolean(),
+});
