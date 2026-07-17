@@ -1,0 +1,31 @@
+# Render Blueprint — deploys the Kirana Konnect API server.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# The database is NOT provisioned here: it lives in Supabase.
+# After the first deploy, set DATABASE_URL in the Render dashboard
+# (Environment tab) to your Supabase pooled connection string.
+# See DEPLOYMENT.md for the full step-by-step guide.
+
+services:
+  - type: web
+    name: kirana-api
+    runtime: node
+    plan: starter # upgrade as traffic grows; "free" works for testing but spins down when idle
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --filter "@workspace/api-server..." && pnpm --filter @workspace/api-server run build
+    startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
+    healthCheckPath: /api/healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      # Supabase pooled connection string (Transaction pooler, port 6543, or
+      # Session pooler, port 5432). Set in the dashboard — never commit it.
+      - key: DATABASE_URL
+        sync: false
+      # Comma-separated list of origins allowed by CORS, e.g.
+      # "https://app.yourdomain.com,https://kirana-web.onrender.com".
+      # Leave unset to allow all origins (fine while testing, not for production).
+      - key: ALLOWED_ORIGINS
+        sync: false

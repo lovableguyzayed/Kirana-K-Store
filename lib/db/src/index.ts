@@ -10,7 +10,27 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Supabase (and most managed Postgres) requires TLS. DATABASE_SSL overrides:
+// "false"/"disable" turns TLS off (local Postgres), anything else forces it on.
+// Defaults to TLS in production. rejectUnauthorized stays false because the
+// Supabase pooler presents a certificate that Node's default CA store can't
+// verify without the project's CA bundle; traffic is still encrypted.
+function resolveSsl(): pg.PoolConfig["ssl"] {
+  const mode = process.env.DATABASE_SSL;
+  if (mode === "false" || mode === "disable") return undefined;
+  if (mode || process.env.NODE_ENV === "production") {
+    return { rejectUnauthorized: false };
+  }
+  return undefined;
+}
+
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: resolveSsl(),
+  // Fail fast with a clear error when the database is unreachable (pg's
+  // default is to wait forever for a connection).
+  connectionTimeoutMillis: 10_000,
+});
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";
