@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export * from "./apiErrorResponse";
-export * from "./healthStatus";
-export * from "./product";
-export * from "./shop";
+export interface ApiErrorResponse {
+  message: string;
+}

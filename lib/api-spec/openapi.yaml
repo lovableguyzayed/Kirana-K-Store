@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: shops
+    description: Shop discovery
+  - name: products
+    description: Product catalog
 paths:
   /healthz:
     get:
@@ -24,6 +28,98 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /shops:
+    get:
+      operationId: listShops
+      tags: [shops]
+      summary: List shops
+      description: Returns all shops
+      responses:
+        "200":
+          description: Shops
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Shop"
+  /shops/{shopId}:
+    get:
+      operationId: getShop
+      tags: [shops]
+      summary: Get a shop
+      description: Returns a single shop by id
+      parameters:
+        - name: shopId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shop
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shop"
+        "404":
+          description: Shop not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+  /shops/{shopId}/products:
+    get:
+      operationId: listShopProducts
+      tags: [products]
+      summary: List a shop's products
+      description: Returns all active products of a shop
+      parameters:
+        - name: shopId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+        "404":
+          description: Shop not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+  /products/{productId}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get a product
+      description: Returns a single product by id
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +129,90 @@ components:
           type: string
       required:
         - status
+    ApiErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+    Shop:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        rating:
+          type: number
+        openTime:
+          type: string
+        closeTime:
+          type: string
+        isOpen:
+          type: boolean
+        categories:
+          type: array
+          items:
+            type: string
+        image:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+        - address
+        - lat
+        - lng
+        - rating
+        - openTime
+        - closeTime
+        - isOpen
+        - categories
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        shopId:
+          type: string
+        shopName:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        unit:
+          type: string
+        category:
+          type: string
+        stock:
+          type: integer
+        description:
+          type: string
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        isWeightBased:
+          type: boolean
+        isActive:
+          type: boolean
+      required:
+        - id
+        - shopId
+        - shopName
+        - name
+        - price
+        - unit
+        - category
+        - stock
+        - isWeightBased
+        - isActive
 

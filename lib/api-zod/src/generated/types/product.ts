@@ -5,27 +5,6 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-export interface HealthStatus {
-  status: string;
-}
-
-export interface ApiErrorResponse {
-  message: string;
-}
-
-export interface Shop {
-  id: string;
-  name: string;
-  address: string;
-  lat: number;
-  lng: number;
-  rating: number;
-  openTime: string;
-  closeTime: string;
-  isOpen: boolean;
-  categories: string[];
-  image?: string | null;
-}
 
 export interface Product {
   id: string;
