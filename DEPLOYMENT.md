@@ -289,8 +289,37 @@ experience before submitting.
 **Web:** the Render static site from 2.2 gives you an instant public URL —
 useful as a demo/landing page while store reviews are pending.
 
-**Updates:** EAS Update can push JS-only changes over the air without a store
-release — worth configuring before launch.
+### Building from GitHub + real-time app updates
+
+The repo ships two GitHub Actions workflows so day-to-day releases need no
+local commands at all:
+
+- **`EAS Android Build`** (`.github/workflows/eas-build.yml`) — GitHub →
+  Actions → run it manually, pick `preview` (APK) or `production`
+  (Play Store AAB). The build runs on EAS; download it from
+  [expo.dev](https://expo.dev) when done.
+- **`EAS OTA Update`** (`.github/workflows/eas-update.yml`) — fires
+  automatically whenever app code lands on `main` and publishes an
+  **over-the-air update**: installed APKs download the new app code on next
+  launch (`expo-updates` is configured with `checkAutomatically: ON_LOAD`).
+  Users get your changes without reinstalling — like a web deploy, but for
+  the native app. Native-level changes (new plugins, permissions, SDK
+  upgrades) don't travel over the air: run a fresh APK build for those and
+  have users install it.
+
+**One-time setup for both workflows:**
+
+1. Locally, in `artifacts/kirana-konnect/`:
+   `pnpm dlx eas-cli login`, then `pnpm dlx eas-cli init` (links the repo to
+   an EAS project; writes `extra.eas.projectId` into `app.json`), then
+   `pnpm dlx eas-cli update:configure` (writes `updates.url` into
+   `app.json`). Commit the `app.json` changes.
+2. Create an access token at <https://expo.dev/settings/access-tokens> and
+   add it to the GitHub repo as a secret named `EXPO_TOKEN`
+   (repo → Settings → Secrets and variables → Actions → New repository
+   secret).
+3. Build the first APK *after* step 1 — only builds made with the updates
+   config baked in can receive OTA updates.
 
 ---
 

@@ -1,0 +1,48 @@
+# Builds the Android app on EAS (Expo's build service) from GitHub.
+# Trigger it manually: GitHub → Actions → "EAS Android Build" → Run workflow.
+#
+# One-time setup required (see DEPLOYMENT.md):
+#   1. Run `eas init` locally once and commit the projectId it writes to app.json
+#   2. Create an access token at https://expo.dev/settings/access-tokens
+#      and save it as the EXPO_TOKEN repository secret
+name: EAS Android Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Build profile (preview = installable APK, production = Play Store AAB)"
+        type: choice
+        default: preview
+        options:
+          - preview
+          - production
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Set up pnpm
+        run: corepack enable
+
+      - name: Set up EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter "@workspace/kirana-konnect..."
+
+      - name: Start EAS build
+        working-directory: artifacts/kirana-konnect
+        run: eas build --platform android --profile ${{ inputs.profile }} --non-interactive --no-wait
+
+      - name: Where is my APK?
+        run: echo "Build queued on EAS. Download it from https://expo.dev when it finishes (~10-20 min)."
