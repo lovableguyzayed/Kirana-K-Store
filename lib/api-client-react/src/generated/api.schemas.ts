@@ -13,6 +13,93 @@ export interface ApiErrorResponse {
   message: string;
 }
 
+export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
+
+export const OrderStatus = {
+  pending: "pending",
+  accepted: "accepted",
+  packed: "packed",
+  out_for_delivery: "out_for_delivery",
+  delivered: "delivered",
+  rejected: "rejected",
+} as const;
+
+export interface OrderItem {
+  productId: string;
+  name: string;
+  price: number;
+  unit: string;
+  quantity: number;
+  selectedWeight?: string;
+}
+
+export type OrderMode = (typeof OrderMode)[keyof typeof OrderMode];
+
+export const OrderMode = {
+  pickup: "pickup",
+  delivery: "delivery",
+} as const;
+
+export type OrderPaymentMethod =
+  (typeof OrderPaymentMethod)[keyof typeof OrderPaymentMethod];
+
+export const OrderPaymentMethod = {
+  cod: "cod",
+  upi: "upi",
+} as const;
+
+export interface Order {
+  id: string;
+  shopId: string;
+  shopName: string;
+  customerPhone: string;
+  items: OrderItem[];
+  total: number;
+  deliveryFee: number;
+  status: OrderStatus;
+  mode: OrderMode;
+  address?: string | null;
+  paymentMethod: OrderPaymentMethod;
+  placedAt: string;
+}
+
+export interface UpdateOrderStatusRequest {
+  status: OrderStatus;
+}
+
+export type PlaceOrderRequestMode =
+  (typeof PlaceOrderRequestMode)[keyof typeof PlaceOrderRequestMode];
+
+export const PlaceOrderRequestMode = {
+  pickup: "pickup",
+  delivery: "delivery",
+} as const;
+
+export type PlaceOrderRequestPaymentMethod =
+  (typeof PlaceOrderRequestPaymentMethod)[keyof typeof PlaceOrderRequestPaymentMethod];
+
+export const PlaceOrderRequestPaymentMethod = {
+  cod: "cod",
+  upi: "upi",
+} as const;
+
+export type PlaceOrderRequestItemsItem = {
+  productId: string;
+  /** @minimum 1 */
+  quantity: number;
+  selectedWeight?: string;
+};
+
+export interface PlaceOrderRequest {
+  shopId: string;
+  customerPhone: string;
+  mode: PlaceOrderRequestMode;
+  address?: string;
+  paymentMethod: PlaceOrderRequestPaymentMethod;
+  /** @minItems 1 */
+  items: PlaceOrderRequestItemsItem[];
+}
+
 export interface Shop {
   id: string;
   name: string;
@@ -41,3 +128,7 @@ export interface Product {
   isWeightBased: boolean;
   isActive: boolean;
 }
+
+export type ListOrdersParams = {
+  phone: string;
+};

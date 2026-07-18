@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CATEGORY_ICONS, getCategoryColor } from "@/constants/categories";
-import { SHOPS, useApp } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
 const CATEGORY_FILTERS = ["All", ...Object.keys(CATEGORY_ICONS)];
@@ -22,7 +22,7 @@ const CATEGORY_FILTERS = ["All", ...Object.keys(CATEGORY_ICONS)];
 export default function SearchScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setSelectedShop, shopProducts } = useApp();
+  const { setSelectedShop, shopProducts, shops } = useApp();
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const inputRef = useRef<TextInput>(null);
@@ -30,12 +30,12 @@ export default function SearchScreen() {
 
   const allProducts = useMemo(
     () =>
-      SHOPS.flatMap((shop) =>
+      shops.flatMap((shop) =>
         (shopProducts[shop.id] ?? [])
           .filter((p) => p.isActive !== false)
           .map((p) => ({ ...p, shopData: shop }))
       ),
-    [shopProducts]
+    [shopProducts, shops]
   );
 
   const results = useMemo(() => {
@@ -53,7 +53,7 @@ export default function SearchScreen() {
   const highlightedShops = useMemo(() => {
     if (!query.trim()) return [];
     const shopIds = new Set(results.map((r) => r.shopId));
-    return SHOPS.filter((s) => shopIds.has(s.id));
+    return shops.filter((s) => shopIds.has(s.id));
   }, [results, query]);
 
   return (
@@ -213,7 +213,7 @@ export default function SearchScreen() {
               <TouchableOpacity
                 style={[styles.productRow, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => {
-                  const shop = SHOPS.find((s) => s.id === item.shopId);
+                  const shop = shops.find((s) => s.id === item.shopId);
                   if (shop) {
                     setSelectedShop(shop);
                     router.push({ pathname: "/shop/[id]", params: { id: item.shopId } });

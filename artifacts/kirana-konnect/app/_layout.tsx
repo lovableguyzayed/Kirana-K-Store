@@ -20,12 +20,10 @@ import { AppProvider } from "@/context/AppContext";
 import { ToastProvider } from "@/context/ToastContext";
 import { supabase } from "@/utils/supabase";
 
-// Point generated API hooks at the deployed backend (e.g. the Render URL).
-// EXPO_PUBLIC_API_URL is baked into the bundle at build time; when unset,
-// requests stay relative (same-origin web dev / local proxy).
-if (process.env.EXPO_PUBLIC_API_URL) {
-  setBaseUrl(process.env.EXPO_PUBLIC_API_URL);
-}
+// Point generated API hooks at the deployed backend. EXPO_PUBLIC_API_URL is
+// baked into the bundle at build time; the production Render URL is the
+// default so every build talks to the live backend out of the box.
+setBaseUrl(process.env.EXPO_PUBLIC_API_URL ?? "https://kirana-k-store.onrender.com");
 
 // Attach the Supabase session token to every API request. Returns null until
 // the user signs in, in which case no Authorization header is sent.

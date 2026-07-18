@@ -5,7 +5,7 @@ import { Alert, Platform, RefreshControl, ScrollView, StyleSheet, Text, Touchabl
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import EmptyState from "@/components/ui/EmptyState";
-import { Order, SHOPS, useApp } from "@/context/AppContext";
+import { Order, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
 const STATUS_COLORS: Record<Order["status"], string> = {
@@ -29,7 +29,7 @@ const STATUS_LABELS: Record<Order["status"], string> = {
 export default function OrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, cart, addToCart, clearCart, setSelectedShop } = useApp();
+  const { orders, cart, addToCart, clearCart, setSelectedShop, shops } = useApp();
   const [refreshing, setRefreshing] = useState(false);
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
@@ -37,7 +37,7 @@ export default function OrdersScreen() {
   const onRefresh = () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 800); };
 
   const handleReorder = (order: Order) => {
-    const shop = SHOPS.find((s) => s.id === order.shopId);
+    const shop = shops.find((s) => s.id === order.shopId);
 
     const doReorder = () => {
       clearCart();

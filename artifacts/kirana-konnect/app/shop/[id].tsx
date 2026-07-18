@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import CartBar from "@/components/CartBar";
 import ProductCard from "@/components/ProductCard";
-import { SHOPS, useApp } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { formatShopHours, isShopCurrentlyOpen } from "@/utils/shopUtils";
 
@@ -22,9 +22,9 @@ export default function ShopDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { cart, shopProducts } = useApp();
+  const { cart, shopProducts, shops } = useApp();
 
-  const shop = useMemo(() => SHOPS.find((s) => s.id === id), [id]);
+  const shop = useMemo(() => shops.find((s) => s.id === id), [id, shops]);
   const products = useMemo(
     () => (shopProducts[id ?? ""] ?? []).filter((p) => p.isActive !== false),
     [shopProducts, id]

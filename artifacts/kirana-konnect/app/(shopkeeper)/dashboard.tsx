@@ -19,7 +19,7 @@ import { useColors } from "@/hooks/useColors";
 export default function ShopkeeperDashboard() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, setCurrentUser, currentUser } = useApp();
+  const { orders, setCurrentUser, currentUser, refreshOrders } = useApp();
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 84 : 0);
 
@@ -51,7 +51,7 @@ export default function ShopkeeperDashboard() {
   );
 
   const [refreshing, setRefreshing] = useState(false);
-  const onRefresh = () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 800); };
+  const onRefresh = async () => { setRefreshing(true); await refreshOrders(); setRefreshing(false); };
 
   const handleLogout = () => {
     Alert.alert(

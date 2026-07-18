@@ -81,6 +81,196 @@ export const ListShopProductsResponseItem = zod.object({
 export const ListShopProductsResponse = zod.array(ListShopProductsResponseItem);
 
 /**
+ * Creates an order; prices are computed server-side from the catalog
+ * @summary Place an order
+ */
+
+export const PlaceOrderBody = zod.object({
+  shopId: zod.string(),
+  customerPhone: zod.string(),
+  mode: zod.enum(["pickup", "delivery"]),
+  address: zod.string().optional(),
+  paymentMethod: zod.enum(["cod", "upi"]),
+  items: zod
+    .array(
+      zod.object({
+        productId: zod.string(),
+        quantity: zod.number().min(1),
+        selectedWeight: zod.string().optional(),
+      }),
+    )
+    .min(1),
+});
+
+/**
+ * Returns orders for a customer phone, newest first
+ * @summary List a customer's orders
+ */
+export const ListOrdersQueryParams = zod.object({
+  phone: zod.coerce.string(),
+});
+
+export const ListOrdersResponseItem = zod.object({
+  id: zod.string(),
+  shopId: zod.string(),
+  shopName: zod.string(),
+  customerPhone: zod.string(),
+  items: zod.array(
+    zod.object({
+      productId: zod.string(),
+      name: zod.string(),
+      price: zod.number(),
+      unit: zod.string(),
+      quantity: zod.number(),
+      selectedWeight: zod.string().optional(),
+    }),
+  ),
+  total: zod.number(),
+  deliveryFee: zod.number(),
+  status: zod.enum([
+    "pending",
+    "accepted",
+    "packed",
+    "out_for_delivery",
+    "delivered",
+    "rejected",
+  ]),
+  mode: zod.enum(["pickup", "delivery"]),
+  address: zod.string().nullish(),
+  paymentMethod: zod.enum(["cod", "upi"]),
+  placedAt: zod.coerce.date(),
+});
+export const ListOrdersResponse = zod.array(ListOrdersResponseItem);
+
+/**
+ * @summary Get an order
+ */
+export const GetOrderParams = zod.object({
+  orderId: zod.coerce.string(),
+});
+
+export const GetOrderResponse = zod.object({
+  id: zod.string(),
+  shopId: zod.string(),
+  shopName: zod.string(),
+  customerPhone: zod.string(),
+  items: zod.array(
+    zod.object({
+      productId: zod.string(),
+      name: zod.string(),
+      price: zod.number(),
+      unit: zod.string(),
+      quantity: zod.number(),
+      selectedWeight: zod.string().optional(),
+    }),
+  ),
+  total: zod.number(),
+  deliveryFee: zod.number(),
+  status: zod.enum([
+    "pending",
+    "accepted",
+    "packed",
+    "out_for_delivery",
+    "delivered",
+    "rejected",
+  ]),
+  mode: zod.enum(["pickup", "delivery"]),
+  address: zod.string().nullish(),
+  paymentMethod: zod.enum(["cod", "upi"]),
+  placedAt: zod.coerce.date(),
+});
+
+/**
+ * Shopkeeper action; only forward transitions are allowed
+ * @summary Update an order's status
+ */
+export const UpdateOrderStatusParams = zod.object({
+  orderId: zod.coerce.string(),
+});
+
+export const UpdateOrderStatusBody = zod.object({
+  status: zod.enum([
+    "pending",
+    "accepted",
+    "packed",
+    "out_for_delivery",
+    "delivered",
+    "rejected",
+  ]),
+});
+
+export const UpdateOrderStatusResponse = zod.object({
+  id: zod.string(),
+  shopId: zod.string(),
+  shopName: zod.string(),
+  customerPhone: zod.string(),
+  items: zod.array(
+    zod.object({
+      productId: zod.string(),
+      name: zod.string(),
+      price: zod.number(),
+      unit: zod.string(),
+      quantity: zod.number(),
+      selectedWeight: zod.string().optional(),
+    }),
+  ),
+  total: zod.number(),
+  deliveryFee: zod.number(),
+  status: zod.enum([
+    "pending",
+    "accepted",
+    "packed",
+    "out_for_delivery",
+    "delivered",
+    "rejected",
+  ]),
+  mode: zod.enum(["pickup", "delivery"]),
+  address: zod.string().nullish(),
+  paymentMethod: zod.enum(["cod", "upi"]),
+  placedAt: zod.coerce.date(),
+});
+
+/**
+ * Returns all orders of a shop, newest first
+ * @summary List a shop's orders
+ */
+export const ListShopOrdersParams = zod.object({
+  shopId: zod.coerce.string(),
+});
+
+export const ListShopOrdersResponseItem = zod.object({
+  id: zod.string(),
+  shopId: zod.string(),
+  shopName: zod.string(),
+  customerPhone: zod.string(),
+  items: zod.array(
+    zod.object({
+      productId: zod.string(),
+      name: zod.string(),
+      price: zod.number(),
+      unit: zod.string(),
+      quantity: zod.number(),
+      selectedWeight: zod.string().optional(),
+    }),
+  ),
+  total: zod.number(),
+  deliveryFee: zod.number(),
+  status: zod.enum([
+    "pending",
+    "accepted",
+    "packed",
+    "out_for_delivery",
+    "delivered",
+    "rejected",
+  ]),
+  mode: zod.enum(["pickup", "delivery"]),
+  address: zod.string().nullish(),
+  paymentMethod: zod.enum(["cod", "upi"]),
+  placedAt: zod.coerce.date(),
+});
+export const ListShopOrdersResponse = zod.array(ListShopOrdersResponseItem);
+
+/**
  * Returns a single product by id
  * @summary Get a product
  */

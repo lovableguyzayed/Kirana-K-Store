@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { Shop, SHOPS } from "@/context/AppContext";
+import { Shop, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { isShopCurrentlyOpen } from "@/utils/shopUtils";
 
@@ -20,6 +20,7 @@ const PINS = [
 
 export default function MapViewComponent({ onShopPress, selectedShop }: MapViewComponentProps) {
   const colors = useColors();
+  const { shops } = useApp();
 
   return (
     <View style={[styles.webMap, { backgroundColor: "#E8F5E9" }]}>
@@ -43,7 +44,7 @@ export default function MapViewComponent({ onShopPress, selectedShop }: MapViewC
         <View style={[styles.userDotInner, { backgroundColor: "#fff" }]} />
       </View>
       {PINS.map((pin) => {
-        const shop = SHOPS.find((s) => s.id === pin.id);
+        const shop = shops.find((s) => s.id === pin.id);
         if (!shop) return null;
         const isSelected = selectedShop?.id === shop.id;
         const shopOpen = isShopCurrentlyOpen(shop);
