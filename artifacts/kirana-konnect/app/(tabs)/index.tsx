@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import MapViewComponent from "@/components/MapView";
-import { Shop, SHOPS, useApp } from "@/context/AppContext";
+import { Shop, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { isShopCurrentlyOpen } from "@/utils/shopUtils";
 
@@ -28,7 +28,7 @@ const SHEET_EXPANDED = SCREEN_H * 0.65;
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setSelectedShop, cartCount } = useApp();
+  const { setSelectedShop, cartCount, shops } = useApp();
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [selectedPin, setSelectedPin] = useState<Shop | null>(null);
@@ -74,7 +74,7 @@ export default function HomeScreen() {
     })
   ).current;
 
-  const filteredShops = SHOPS.filter((s) => {
+  const filteredShops = shops.filter((s) => {
     if (search) return s.name.toLowerCase().includes(search.toLowerCase());
     if (activeFilter === "Open Now") return isShopCurrentlyOpen(s);
     return true;

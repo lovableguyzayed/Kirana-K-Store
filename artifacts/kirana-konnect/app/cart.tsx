@@ -14,13 +14,13 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AddToCartModal from "@/components/AddToCartModal";
-import { CartItem, getProductById, isWeightBased, useApp } from "@/context/AppContext";
+import { CartItem, isWeightBased, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
 export default function CartScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { cart, removeFromCart, updateQuantity, cartTotal, cartCount, deliveryMode, setDeliveryMode } = useApp();
+  const { cart, removeFromCart, updateQuantity, cartTotal, cartCount, deliveryMode, setDeliveryMode, getProductById } = useApp();
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
   const editProduct = editingItem ? (getProductById(editingItem.id) ?? null) : null;
 

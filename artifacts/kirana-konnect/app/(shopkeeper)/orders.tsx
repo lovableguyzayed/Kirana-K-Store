@@ -18,7 +18,15 @@ import { useColors } from "@/hooks/useColors";
 export default function ShopkeeperOrders() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, updateOrderStatus, currentUser } = useApp();
+  const { orders, updateOrderStatus, currentUser, refreshOrders } = useApp();
+
+  // Poll for incoming orders so new ones appear without a manual refresh.
+  React.useEffect(() => {
+    const t = setInterval(() => {
+      refreshOrders();
+    }, 15000);
+    return () => clearInterval(t);
+  }, [refreshOrders]);
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 84 : 0);
 
@@ -38,7 +46,7 @@ export default function ShopkeeperOrders() {
   );
 
   const [refreshing, setRefreshing] = useState(false);
-  const onRefresh = () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 800); };
+  const onRefresh = async () => { setRefreshing(true); await refreshOrders(); setRefreshing(false); };
 
   const handleAccept = (order: Order) => {
     updateOrderStatus(order.id, "accepted");

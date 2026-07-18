@@ -227,7 +227,7 @@ export default function TrackingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { orders, updateOrderStatus } = useApp();
+  const { orders, updateOrderStatus, refreshOrder } = useApp();
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
@@ -260,16 +260,15 @@ export default function TrackingScreen() {
     return () => clearInterval(t);
   }, [order?.status]);
 
+  // Poll the backend for the real status set by the shopkeeper. (The old
+  // demo behavior auto-advanced the timeline on a timer.)
   useEffect(() => {
     if (!order || order.status === "delivered" || order.status === "rejected") return;
-    const currentIdx = STATUS_ORDER.indexOf(order.status);
-    if (currentIdx < STATUS_ORDER.length - 1) {
-      const t = setTimeout(() => {
-        updateOrderStatus(order.id, STATUS_ORDER[currentIdx + 1]);
-      }, 5000);
-      return () => clearTimeout(t);
-    }
-  }, [order?.status]);
+    const t = setInterval(() => {
+      refreshOrder(order.id);
+    }, 8000);
+    return () => clearInterval(t);
+  }, [order?.id, order?.status, refreshOrder]);
 
   if (!order) return null;
 

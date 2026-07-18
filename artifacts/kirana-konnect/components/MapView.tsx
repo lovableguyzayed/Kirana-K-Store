@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { WebView } from "react-native-webview";
 
-import { Shop, SHOPS } from "@/context/AppContext";
+import { Shop, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { isShopCurrentlyOpen } from "@/utils/shopUtils";
 
@@ -20,10 +20,11 @@ const BAG_SVG =
  */
 export default function MapViewComponent({ onShopPress, selectedShop }: MapViewComponentProps) {
   const colors = useColors();
+  const { shops } = useApp();
   const webViewRef = useRef<WebView>(null);
 
   const html = useMemo(() => {
-    const pins = SHOPS.map((shop) => ({
+    const pins = shops.map((shop) => ({
       id: shop.id,
       lat: shop.lat,
       lng: shop.lng,
@@ -108,7 +109,7 @@ export default function MapViewComponent({ onShopPress, selectedShop }: MapViewC
 </script>
 </body>
 </html>`;
-  }, [colors.primary, colors.accent]);
+  }, [shops, colors.primary, colors.accent]);
 
   useEffect(() => {
     webViewRef.current?.injectJavaScript(
@@ -127,7 +128,7 @@ export default function MapViewComponent({ onShopPress, selectedShop }: MapViewC
       geolocationEnabled
       setSupportMultipleWindows={false}
       onMessage={(event) => {
-        const shop = SHOPS.find((s) => s.id === event.nativeEvent.data);
+        const shop = shops.find((s) => s.id === event.nativeEvent.data);
         if (shop) onShopPress(shop);
       }}
     />

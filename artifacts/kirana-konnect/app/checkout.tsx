@@ -70,16 +70,16 @@ export default function CheckoutScreen() {
 
     setPlacing(true);
     if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setTimeout(() => {
+    (async () => {
       try {
-        const order = placeOrder(finalAddress.trim(), paymentMethod);
+        const order = await placeOrder(finalAddress.trim(), paymentMethod);
         setPlacing(false);
         router.replace({ pathname: "/order-success/[id]", params: { id: order.id } });
       } catch {
         setPlacing(false);
         Alert.alert("Error", "Could not place order. Please try again.");
       }
-    }, 1000);
+    })();
   };
 
   return (

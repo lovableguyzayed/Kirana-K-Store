@@ -8,5 +8,16 @@
 
 export * from "./apiErrorResponse";
 export * from "./healthStatus";
+export * from "./listOrdersParams";
+export * from "./order";
+export * from "./orderItem";
+export * from "./orderMode";
+export * from "./orderPaymentMethod";
+export * from "./orderStatus";
+export * from "./placeOrderRequest";
+export * from "./placeOrderRequestItemsItem";
+export * from "./placeOrderRequestMode";
+export * from "./placeOrderRequestPaymentMethod";
 export * from "./product";
 export * from "./shop";
+export * from "./updateOrderStatusRequest";
