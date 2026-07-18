@@ -263,13 +263,12 @@ yes; EAS stores it). When the build finishes (~10–20 min), EAS prints a
 download link + QR code for the APK — open it on any Android phone, allow
 "install unknown apps", and install.
 
-> **Google Maps key required for the map screen.** `react-native-maps` on
-> Android needs a Maps SDK key or the map renders as a blank/gray box
-> (the rest of the app works). Get a key in Google Cloud Console (enable
-> "Maps SDK for Android"), then add it to `app.json`:
-> `"android": { "config": { "googleMaps": { "apiKey": "<key>" } } }`.
-> Restrict the key to Android apps + your package name
-> (`com.kiranakonnect.app`) before shipping.
+> **Maps are free — no Google key needed.** The map screen uses
+> **OpenStreetMap** (Leaflet in a WebView), which requires no API key, no
+> billing account, and no configuration. If traffic ever grows large,
+> switch the tile URL in `components/MapView.tsx` to a dedicated free-tier
+> provider (e.g. MapTiler or Stadia Maps) to respect OpenStreetMap's
+> fair-use policy.
 
 **Android (the fast path in India):**
 

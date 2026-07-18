@@ -42,7 +42,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 **Tech:**
 - Expo Router (file-based routing)
 - React Context (AppContext) + AsyncStorage
-- Platform-specific map: `MapView.tsx` (native, react-native-maps 1.18.0) / `MapView.web.tsx` (web grid mock)
+- Platform-specific map: `MapView.tsx` (native, OpenStreetMap via Leaflet in react-native-webview) / `MapView.web.tsx` (web grid mock)
 - Colors: `#2E7D32` primary green, `#FF9800` accent orange
 
 ## Key Commands
