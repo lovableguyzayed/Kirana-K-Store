@@ -39,6 +39,8 @@ export default function LoginScreen() {
   const [isShopkeeperMode, setIsShopkeeperMode] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(30);
   const [canResend, setCanResend] = useState(false);
+  // Bumped on every successful send so a resend restarts the countdown.
+  const [otpSentAt, setOtpSentAt] = useState(0);
   const [authMode, setAuthMode] = useState<AuthMode>("live");
   const [error, setError] = useState<string | null>(null);
   const otpRefs = useRef<(TextInput | null)[]>([]);
@@ -58,7 +60,7 @@ export default function LoginScreen() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [step]);
+  }, [step, otpSentAt]);
 
   const handleSendOtp = async () => {
     if (phone.length < 10) return;
@@ -72,6 +74,7 @@ export default function LoginScreen() {
     if (!otpError) {
       setAuthMode("live");
       setOtp(["", "", "", "", "", ""]);
+      setOtpSentAt(Date.now());
       setStep("otp");
       return;
     }
@@ -79,6 +82,7 @@ export default function LoginScreen() {
     if (otpError.code === "phone_provider_disabled") {
       setAuthMode("demo");
       setOtp(["", "", "", "", "", ""]);
+      setOtpSentAt(Date.now());
       setStep("otp");
       return;
     }
