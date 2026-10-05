@@ -17,6 +17,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { supabase } from "@/utils/supabase";
+
+// "live": real SMS OTP via Supabase Auth. "demo": Supabase reported that
+// phone sign-in isn't configured yet, so any 6 digits are accepted. Demo is
+// chosen only on that explicit server signal — never on network errors — so
+// it can't be used to skip real verification once SMS is set up.
+type AuthMode = "live" | "demo";
+
+const toE164 = (phone: string) => `+91${phone}`;
 
 export default function LoginScreen() {
   const colors = useColors();
@@ -30,6 +39,8 @@ export default function LoginScreen() {
   const [isShopkeeperMode, setIsShopkeeperMode] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(30);
   const [canResend, setCanResend] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("live");
+  const [error, setError] = useState<string | null>(null);
   const otpRefs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
@@ -49,14 +60,38 @@ export default function LoginScreen() {
     return () => clearInterval(interval);
   }, [step]);
 
-  const handleSendOtp = () => {
+  const handleSendOtp = async () => {
     if (phone.length < 10) return;
     setLoading(true);
+    setError(null);
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setTimeout(() => {
-      setLoading(false);
+
+    const { error: otpError } = await supabase.auth.signInWithOtp({ phone: toE164(phone) });
+    setLoading(false);
+
+    if (!otpError) {
+      setAuthMode("live");
+      setOtp(["", "", "", "", "", ""]);
       setStep("otp");
-    }, 1000);
+      return;
+    }
+
+    if (otpError.code === "phone_provider_disabled") {
+      setAuthMode("demo");
+      setOtp(["", "", "", "", "", ""]);
+      setStep("otp");
+      return;
+    }
+
+    setError(
+      otpError.code === "over_sms_send_rate_limit" || otpError.status === 429
+        ? "Too many attempts. Please wait a minute and try again."
+        : otpError.status === undefined || otpError.status === 0
+          ? "Couldn't reach the server. Check your internet connection."
+          : otpError.code === "sms_send_failed"
+            ? "We couldn't send the SMS right now. Please try again shortly."
+            : "Couldn't send the OTP. Please check the number and try again.",
+    );
   };
 
   const handleOtpChange = (val: string, idx: number) => {
@@ -68,26 +103,47 @@ export default function LoginScreen() {
     }
   };
 
-  const handleVerify = () => {
-    if (otp.join("").length < 6) return;
+  const handleVerify = async () => {
+    const code = otp.join("");
+    if (code.length < 6) return;
     setLoading(true);
+    setError(null);
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setTimeout(() => {
-      setLoading(false);
-      if (isShopkeeperMode) {
-        setCurrentUser({
-          phone,
-          role: "shopkeeper",
-          shopId: "s1",
-          shopName: "Gupta Kirana Store",
-          ownerName: "Ramesh Gupta",
-        });
-        router.replace("/(shopkeeper)/dashboard");
-      } else {
-        setCurrentUser({ phone, role: "customer" });
-        router.replace("/(tabs)");
+
+    if (authMode === "live") {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        phone: toE164(phone),
+        token: code,
+        type: "sms",
+      });
+      if (verifyError) {
+        setLoading(false);
+        setOtp(["", "", "", "", "", ""]);
+        otpRefs.current[0]?.focus();
+        if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setError(
+          verifyError.code === "otp_expired"
+            ? "This OTP has expired. Tap Resend to get a new one."
+            : "Incorrect OTP. Please try again.",
+        );
+        return;
       }
-    }, 800);
+    }
+
+    setLoading(false);
+    if (isShopkeeperMode) {
+      setCurrentUser({
+        phone,
+        role: "shopkeeper",
+        shopId: "s1",
+        shopName: "Gupta Kirana Store",
+        ownerName: "Ramesh Gupta",
+      });
+      router.replace("/(shopkeeper)/dashboard");
+    } else {
+      setCurrentUser({ phone, role: "customer" });
+      router.replace("/(tabs)");
+    }
   };
 
   const handleResend = () => {
@@ -158,9 +214,21 @@ export default function LoginScreen() {
                   </Text>
                 )}
               </TouchableOpacity>
+              {error && <ErrorMessage message={error} color={colors.destructive} />}
             </>
           ) : (
             <>
+              {authMode === "demo" && (
+                <View
+                  style={[styles.demoBanner, { backgroundColor: colors.accent + "18", borderColor: colors.accent + "55" }]}
+                  accessibilityRole="alert"
+                >
+                  <Feather name="info" size={14} color={colors.accent} />
+                  <Text style={[styles.demoText, { color: colors.foreground }]}>
+                    Demo mode — SMS isn't set up yet, so any 6 digits will work.
+                  </Text>
+                </View>
+              )}
               <Text style={[styles.label, { color: colors.foreground }]}>Enter OTP</Text>
               <View style={styles.otpRow}>
                 {otp.map((digit, idx) => (
@@ -218,7 +286,14 @@ export default function LoginScreen() {
                   </Text>
                 )}
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setStep("phone")} style={styles.backBtn}>
+              {error && <ErrorMessage message={error} color={colors.destructive} />}
+              <TouchableOpacity
+                onPress={() => {
+                  setError(null);
+                  setStep("phone");
+                }}
+                style={styles.backBtn}
+              >
                 <Feather name="arrow-left" size={14} color={colors.mutedForeground} />
                 <Text style={[styles.backText, { color: colors.mutedForeground }]}>Change number</Text>
               </TouchableOpacity>
@@ -245,8 +320,29 @@ export default function LoginScreen() {
   );
 }
 
+function ErrorMessage({ message, color }: { message: string; color: string }) {
+  return (
+    <View style={styles.errorRow} accessibilityRole="alert" accessibilityLiveRegion="polite">
+      <Feather name="alert-circle" size={14} color={color} />
+      <Text style={[styles.errorText, { color }]}>{message}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  errorRow: { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center" },
+  errorText: { fontSize: 13, fontFamily: "Inter_500Medium", flexShrink: 1, textAlign: "center" },
+  demoBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  demoText: { fontSize: 12, fontFamily: "Inter_500Medium", flexShrink: 1, lineHeight: 17 },
   inner: {
     flex: 1,
     paddingHorizontal: 20,

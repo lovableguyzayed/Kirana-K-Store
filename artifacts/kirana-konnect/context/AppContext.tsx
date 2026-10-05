@@ -14,6 +14,8 @@ import {
   type Shop as ApiShop,
 } from "@workspace/api-client-react";
 
+import { supabase } from "@/utils/supabase";
+
 export interface Product {
   id: string;
   name: string;
@@ -517,6 +519,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setCurrentUser = useCallback((user: AppUser | null) => {
     setCurrentUserState(user);
+    // Logging out must also end the Supabase session; otherwise its token
+    // would keep being attached to API requests.
+    if (!user) {
+      supabase.auth.signOut().catch(() => {});
+    }
   }, []);
 
   // Pull the signed-in user's orders from the backend (customer: their
