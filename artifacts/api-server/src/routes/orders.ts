@@ -17,11 +17,19 @@ import {
   PlaceOrderBody,
   UpdateOrderStatusBody,
 } from "@workspace/api-zod";
+import { requireAuthIfEnabled } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
 const FREE_DELIVERY_THRESHOLD = 200;
 const DELIVERY_FEE = 30;
+
+/**
+ * Phones arrive in mixed formats ("+919876543210" from Supabase Auth,
+ * "9876543210" from the app). Store and query by the last 10 digits so both
+ * refer to the same customer.
+ */
+const normalizePhone = (p: string) => p.replace(/\D/g, "").slice(-10);
 
 /** Parses weight labels like "500 g" / "1.5 kg" into kilograms. */
 function parseWeightKg(label: string): number | null {
@@ -34,7 +42,7 @@ function parseWeightKg(label: string): number | null {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-router.post("/orders", async (req, res) => {
+router.post("/orders", requireAuthIfEnabled, async (req, res) => {
   const parsed = PlaceOrderBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid request" });
@@ -112,7 +120,9 @@ router.post("/orders", async (req, res) => {
     .values({
       shopId: shop.id,
       shopName: shop.name,
-      customerPhone: body.customerPhone,
+      // A verified login token is the source of truth for identity; the
+      // body value is only trusted for anonymous (pre-auth rollout) callers.
+      customerPhone: normalizePhone(req.auth?.phone ?? body.customerPhone),
       items,
       total: round2(subtotal + deliveryFee),
       deliveryFee,
@@ -125,9 +135,10 @@ router.post("/orders", async (req, res) => {
   res.status(201).json(GetOrderResponse.parse(order));
 });
 
-router.get("/orders", async (req, res) => {
+router.get("/orders", requireAuthIfEnabled, async (req, res) => {
   const parsed = ListOrdersQueryParams.safeParse(req.query);
-  if (!parsed.success || !parsed.data.phone.trim()) {
+  const phone = req.auth?.phone ?? (parsed.success ? parsed.data.phone : "");
+  if (!phone.trim()) {
     res.status(400).json({ message: "phone query parameter is required" });
     return;
   }
@@ -135,7 +146,7 @@ router.get("/orders", async (req, res) => {
   const orders = await db
     .select()
     .from(ordersTable)
-    .where(eq(ordersTable.customerPhone, parsed.data.phone))
+    .where(eq(ordersTable.customerPhone, normalizePhone(phone)))
     .orderBy(desc(ordersTable.placedAt));
 
   res.json(ListOrdersResponse.parse(orders));
@@ -156,7 +167,7 @@ router.get("/orders/:orderId", async (req, res) => {
   res.json(GetOrderResponse.parse(order));
 });
 
-router.patch("/orders/:orderId/status", async (req, res) => {
+router.patch("/orders/:orderId/status", requireAuthIfEnabled, async (req, res) => {
   const parsed = UpdateOrderStatusBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "Invalid status" });
@@ -190,7 +201,7 @@ router.patch("/orders/:orderId/status", async (req, res) => {
   res.json(GetOrderResponse.parse(updated));
 });
 
-router.get("/shops/:shopId/orders", async (req, res) => {
+router.get("/shops/:shopId/orders", requireAuthIfEnabled, async (req, res) => {
   const [shop] = await db
     .select({ id: shopsTable.id })
     .from(shopsTable)
