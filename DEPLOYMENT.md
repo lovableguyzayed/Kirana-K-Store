@@ -96,25 +96,33 @@ through the CLI or dashboard, or the two will drift apart.
 
 ### 1.4 Authentication (phone OTP)
 
-The app's login screen is built around phone + OTP, which maps directly onto
-**Supabase Auth phone sign-in**:
+Login is **already implemented end to end** — it's waiting only on an SMS
+provider, which is an account/billing decision:
 
-1. **Authentication → Providers → Phone**: enable it.
-2. Connect an SMS provider. Supabase supports **Twilio**, **MessageBird**,
-   **Vonage**, and **Textlocal**. For India, Twilio works but check DLT
-   registration requirements for SMS sender IDs; many Indian apps use an
-   India-focused provider via Twilio Verify.
-3. In the app, install `@supabase/supabase-js` and call
-   `supabase.auth.signInWithOtp({ phone })` /
-   `supabase.auth.verifyOtp({ phone, token, type: "sms" })` from
-   `app/login.tsx` (replacing the current mock flow).
-4. The client SDK needs only `SUPABASE_URL` and the **anon key**
-   (Project Settings → API) — both are safe to embed in the app as
-   `EXPO_PUBLIC_` variables.
-5. The API server verifies requests by validating the Supabase JWT from the
-   `Authorization: Bearer` header (the API client already attaches tokens via
-   `setAuthTokenGetter` in `lib/api-client-react`). Verify with the project's
-   JWT secret or JWKS endpoint in an Express middleware.
+- **App** (`app/login.tsx`): sends and verifies the OTP through Supabase Auth.
+  While Supabase reports phone sign-in isn't configured, the app runs in
+  clearly labelled **demo mode** (any 6 digits work). It never falls back to
+  demo on network or SMS-delivery errors.
+- **API** (`artifacts/api-server/src/middlewares/auth.ts`): verifies the
+  Supabase access token on every request against the project's public JWKS
+  keys. When a valid token is present, the customer's identity comes from
+  the token — client-sent phone numbers are ignored.
+
+**To switch on real SMS login:**
+
+1. Supabase → **Authentication → Sign In / Providers → Phone**: enable it.
+2. Connect an SMS provider there. Supabase supports **Twilio**,
+   **MessageBird**, **Vonage** and **Textlocal**. For India, sender IDs need
+   **DLT registration** with TRAI — Twilio Verify or an India-focused
+   provider handles this most easily. Budget roughly ₹0.15–0.50 per SMS.
+3. Test on your phone: the "Demo mode" banner disappears and a real SMS
+   arrives. Nothing else changes — no code edits, no rebuild.
+4. Once everyone is on real login, Render → your service → Environment →
+   set **`REQUIRE_AUTH=true`**. From then on, order endpoints reject any
+   request without a valid login token.
+
+Don't set `REQUIRE_AUTH=true` before step 3 works — demo-mode users have no
+token and would be locked out of ordering.
 
 ### 1.5 Storage (product & shop images)
 
@@ -328,11 +336,17 @@ Before announcing the app publicly:
 
 - [ ] **CORS locked down** — `ALLOWED_ORIGINS` set on Render (mobile apps
       don't send an Origin header, so this only needs your web domains).
-- [ ] **Auth enforced** — every non-health API route validates the Supabase
-      JWT; shopkeeper routes check the user actually owns the shop.
+- [x] **Login tokens verified** — the API validates Supabase JWTs and takes
+      customer identity from them.
+- [ ] **Auth enforced** — set `REQUIRE_AUTH=true` once SMS login is live
+      (see 1.4).
+- [ ] **Shop ownership checks** — shopkeeper accounts aren't linked to shops
+      yet, so order-status changes can't verify the caller owns the shop.
+      Arrives with shopkeeper registration.
 - [ ] **RLS enabled** on all Supabase tables and storage buckets.
-- [ ] **Rate limiting** — add `express-rate-limit` (OTP endpoints especially:
-      SMS costs money and OTP-flooding is a common abuse vector).
+- [x] **Rate limiting** — 300 requests / 15 min per IP on `/api`. OTP sends
+      go straight to Supabase Auth, whose own limits apply (Authentication →
+      Rate Limits) — tighten them there to control SMS spend.
 - [ ] **Input validation** — parse every request body with the Zod schemas
       from `@workspace/api-zod` (generated from `lib/api-spec/openapi.yaml`).
 - [ ] **Backups** — Supabase includes daily backups; enable Point-in-Time
