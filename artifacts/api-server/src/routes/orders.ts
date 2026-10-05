@@ -167,7 +167,7 @@ router.get("/orders/:orderId", async (req, res) => {
   res.json(GetOrderResponse.parse(order));
 });
 
-router.patch("/orders/:orderId/status", requireAuthIfEnabled, async (req, res) => {
+router.patch<{ orderId: string }>("/orders/:orderId/status", requireAuthIfEnabled, async (req, res) => {
   const parsed = UpdateOrderStatusBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "Invalid status" });
@@ -201,7 +201,7 @@ router.patch("/orders/:orderId/status", requireAuthIfEnabled, async (req, res) =
   res.json(GetOrderResponse.parse(updated));
 });
 
-router.get("/shops/:shopId/orders", requireAuthIfEnabled, async (req, res) => {
+router.get<{ shopId: string }>("/shops/:shopId/orders", requireAuthIfEnabled, async (req, res) => {
   const [shop] = await db
     .select({ id: shopsTable.id })
     .from(shopsTable)
