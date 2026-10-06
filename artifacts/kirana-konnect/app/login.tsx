@@ -30,7 +30,7 @@ const toE164 = (phone: string) => `+91${phone}`;
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setCurrentUser } = useApp();
+  const { setCurrentUser, lookupMyShop } = useApp();
 
   const [phone, setPhone] = useState("");
   const [step, setStep] = useState<"phone" | "otp">("phone");
@@ -134,20 +134,35 @@ export default function LoginScreen() {
       }
     }
 
-    setLoading(false);
     if (isShopkeeperMode) {
-      setCurrentUser({
-        phone,
-        role: "shopkeeper",
-        shopId: "s1",
-        shopName: "Gupta Kirana Store",
-        ownerName: "Ramesh Gupta",
-      });
-      router.replace("/(shopkeeper)/dashboard");
-    } else {
-      setCurrentUser({ phone, role: "customer" });
-      router.replace("/(tabs)");
+      // Send the shopkeeper to their own shop, or to registration if they
+      // don't have one yet.
+      try {
+        const shop = await lookupMyShop(phone);
+        setLoading(false);
+        if (shop) {
+          setCurrentUser({
+            phone,
+            role: "shopkeeper",
+            shopId: shop.id,
+            shopName: shop.name,
+            ownerName: shop.ownerName,
+          });
+          router.replace("/(shopkeeper)/dashboard");
+        } else {
+          setCurrentUser({ phone, role: "shopkeeper" });
+          router.replace("/register-shop");
+        }
+      } catch {
+        setLoading(false);
+        setError("Couldn't reach the server to find your shop. Please try again.");
+      }
+      return;
     }
+
+    setLoading(false);
+    setCurrentUser({ phone, role: "customer" });
+    router.replace("/(tabs)");
   };
 
   const handleResend = () => {

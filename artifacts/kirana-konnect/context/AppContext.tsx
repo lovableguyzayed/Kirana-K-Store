@@ -60,6 +60,7 @@ export interface Shop {
   isOpen: boolean;
   categories: string[];
   image?: string;
+  ownerName?: string;
 }
 
 export interface Order {
@@ -410,6 +411,7 @@ function apiShopToApp(s: ApiShop): Shop {
     isOpen: s.isOpen,
     categories: s.categories,
     image: s.image ?? undefined,
+    ownerName: s.ownerName ?? undefined,
   };
 }
 
