@@ -65,8 +65,9 @@ export function buildMapHtml({
   }
   .pin.selected .pin-dot { transform: scale(1.18); }
   .pin.selected .pin-label { background: #1f2937; color: #fff; }
+  .pin.selected { z-index: 3; }
   .user-dot {
-    width: 16px; height: 16px; border-radius: 8px; background: #1E88E5; border: 3px solid #fff;
+    width: 18px; height: 18px; border-radius: 50%; box-sizing: border-box; background: #1E88E5; border: 3px solid #fff;
     box-shadow: 0 0 0 6px rgba(30,136,229,0.22), 0 1px 4px rgba(0,0,0,0.3);
   }
   #fallback {
@@ -113,13 +114,16 @@ export function buildMapHtml({
   function styleMarker(pin) {
     var el = markers[pin.id].el;
     var color = pinColor(pin);
-    el.className = "pin" + (pin.id === selectedId ? " selected" : "");
+    // Toggle only our class: MapLibre adds its own positioning classes to
+    // the marker element, and overwriting className would drop them.
+    el.classList.toggle("selected", pin.id === selectedId);
     el.querySelector(".pin-dot").style.background = color;
     el.querySelector(".pin-tip").style.borderTop = "7px solid " + color;
   }
 
   function buildMarkerEl(pin) {
     var el = document.createElement("div");
+    el.className = "pin";
     el.setAttribute("role", "button");
     el.setAttribute("aria-label", pin.name);
     el.innerHTML =
@@ -133,9 +137,38 @@ export function buildMapHtml({
     return el;
   }
 
+  function overlaps(a, b) {
+    return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+  }
+
+  // Like real map apps: pins always show, but a name that would cover
+  // another pin or name is hidden until the user zooms in. The selected
+  // shop wins, then open shops.
+  function declutter() {
+    var order = PINS.filter(function (p) { return markers[p.id]; }).sort(function (a, b) {
+      return (b.id === selectedId) - (a.id === selectedId) || (b.open - a.open);
+    });
+    var dots = order.map(function (p) {
+      return { id: p.id, rect: markers[p.id].el.querySelector(".pin-dot").getBoundingClientRect() };
+    });
+    var placed = [];
+    order.forEach(function (p) {
+      var label = markers[p.id].el.querySelector(".pin-label");
+      var r = label.getBoundingClientRect();
+      // The selected shop's name is always shown (it's drawn on top).
+      var clash =
+        p.id !== selectedId &&
+        (placed.some(function (q) { return overlaps(r, q); }) ||
+          dots.some(function (d) { return d.id !== p.id && overlaps(r, d.rect); }));
+      label.style.visibility = clash ? "hidden" : "visible";
+      if (!clash) placed.push(r);
+    });
+  }
+
   window.setSelected = function (id) {
     selectedId = id;
     PINS.forEach(function (pin) { if (markers[pin.id]) styleMarker(pin); });
+    declutter();
   };
 
   function distanceKm(a, b) {
@@ -155,8 +188,9 @@ export function buildMapHtml({
     }
     var b = new maplibregl.LngLatBounds();
     points.forEach(function (p) { b.extend([p.lng, p.lat]); });
-    // Bottom padding leaves room for the shop list sheet.
-    map.fitBounds(b, { padding: { top: 110, bottom: 240, left: 50, right: 50 }, maxZoom: 16, duration: 0 });
+    // Pins sit above their point and labels below it, ~65px either side.
+    // Bottom padding also leaves room for the shop list sheet.
+    map.fitBounds(b, { padding: { top: 110, bottom: 240, left: 70, right: 70 }, maxZoom: 16, duration: 0 });
   }
 
   // Customer location: show the blue dot and frame them with their
@@ -201,6 +235,8 @@ export function buildMapHtml({
       styleMarker(pin);
     });
     frame(PINS);
+    map.on("moveend", declutter);
+    map.on("load", declutter);
 
     // A style that never loads (offline, blocked) → friendly fallback.
     var loadTimer = setTimeout(function () { if (!map.isStyleLoaded()) showFallback(); }, 12000);
