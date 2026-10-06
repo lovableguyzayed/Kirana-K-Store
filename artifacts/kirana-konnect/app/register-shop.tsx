@@ -447,6 +447,15 @@ function TimeStepper({
   return (
     <View style={[styles.stepper, { borderColor: colors.border, backgroundColor: colors.background }]}>
       <Text style={[styles.stepperLabel, { color: colors.mutedForeground }]}>{label}</Text>
+      {/* Time on its own line so long values ("12:30 PM") never collide
+          with the buttons on narrow phones. */}
+      <Text
+        style={[styles.stepperValue, { color: colors.foreground }]}
+        accessibilityLabel={`${label} at ${to12h(value)}`}
+        numberOfLines={1}
+      >
+        {to12h(value)}
+      </Text>
       <View style={styles.stepperRow}>
         <TouchableOpacity
           style={[styles.stepBtn, { backgroundColor: colors.muted }]}
@@ -456,12 +465,6 @@ function TimeStepper({
         >
           <Feather name="minus" size={16} color={colors.foreground} />
         </TouchableOpacity>
-        <Text
-          style={[styles.stepperValue, { color: colors.foreground }]}
-          accessibilityLabel={`${label} at ${to12h(value)}`}
-        >
-          {to12h(value)}
-        </Text>
         <TouchableOpacity
           style={[styles.stepBtn, { backgroundColor: colors.muted }]}
           onPress={() => step(STEP_MINUTES)}
@@ -509,11 +512,11 @@ const styles = StyleSheet.create({
   locationTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   locationHint: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2, lineHeight: 16 },
   hoursRow: { flexDirection: "row", gap: 10 },
-  stepper: { flex: 1, borderWidth: 1, borderRadius: 12, padding: 10, gap: 8 },
-  stepperLabel: { fontSize: 12, fontFamily: "Inter_500Medium", textAlign: "center" },
-  stepperRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  stepBtn: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-  stepperValue: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  stepper: { flex: 1, borderWidth: 1, borderRadius: 12, padding: 12, gap: 6, alignItems: "center" },
+  stepperLabel: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  stepperRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 14, marginTop: 2 },
+  stepBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  stepperValue: { fontSize: 18, fontFamily: "Inter_700Bold" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     flexDirection: "row",
