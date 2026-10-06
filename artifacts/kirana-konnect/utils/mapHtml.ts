@@ -52,7 +52,10 @@ export function buildMapHtml({
 <style>
   html, body, #map { margin: 0; padding: 0; height: 100%; width: 100%; background: #f2efe9; overflow: hidden; }
   body { font-family: -apple-system, Roboto, "Segoe UI", sans-serif; -webkit-tap-highlight-color: transparent; }
-  .pin { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+  /* The marker box itself ignores taps; only its visible parts take them,
+     so a neighbour's hidden name can't steal a tap meant for this pin. */
+  .pin { display: flex; flex-direction: column; align-items: center; cursor: pointer; pointer-events: none; }
+  .pin > * { pointer-events: auto; }
   .pin-dot {
     width: 34px; height: 34px; border-radius: 17px; border: 2.5px solid #fff; box-sizing: border-box;
     display: flex; align-items: center; justify-content: center;
@@ -67,6 +70,13 @@ export function buildMapHtml({
   .pin.selected .pin-dot { transform: scale(1.18); }
   .pin.selected .pin-label { background: #1f2937; color: #fff; }
   .pin.selected { z-index: 3; }
+  .cluster { cursor: pointer; z-index: 2; }
+  .cluster-dot {
+    width: 42px; height: 42px; border-radius: 50%; box-sizing: border-box; border: 3px solid #fff;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 15px; font-weight: 700;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.28);
+  }
   .user-dot {
     width: 18px; height: 18px; border-radius: 50%; box-sizing: border-box; background: #1E88E5; border: 3px solid #fff;
     box-shadow: 0 0 0 6px rgba(30,136,229,0.22), 0 1px 4px rgba(0,0,0,0.3);
@@ -144,15 +154,79 @@ export function buildMapHtml({
     return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
   }
 
+  // Highest priority first: the selected shop, then open shops.
+  function byPriority() {
+    return PINS.filter(function (p) { return markers[p.id]; }).sort(function (a, b) {
+      return (b.id === selectedId) - (a.id === selectedId) || (b.open - a.open);
+    });
+  }
+
+  // Shops close enough that their pins would overlap are grouped into one
+  // numbered bubble (like Swiggy/Google Maps); tapping it zooms in until
+  // they separate. The selected shop is never grouped.
+  var CLUSTER_PX = 38;
+  var CLUSTER_UNTIL_ZOOM = 18.5;
+  var clusterMarkers = [];
+
+  function cluster() {
+    clusterMarkers.forEach(function (m) { m.remove(); });
+    clusterMarkers = [];
+    var noGrouping = map.getZoom() >= CLUSTER_UNTIL_ZOOM;
+    var groups = [];
+    byPriority().forEach(function (pin) {
+      var pt = map.project([pin.lng, pin.lat]);
+      var group = null;
+      if (!noGrouping && pin.id !== selectedId) {
+        group = groups.find(function (g) {
+          return g.pins[0].id !== selectedId && Math.hypot(g.pt.x - pt.x, g.pt.y - pt.y) < CLUSTER_PX;
+        });
+      }
+      if (group) group.pins.push(pin);
+      else groups.push({ pt: pt, pins: [pin] });
+    });
+
+    groups.forEach(function (g) {
+      if (g.pins.length === 1) {
+        markers[g.pins[0].id].el.style.display = "";
+        return;
+      }
+      var lng = 0, lat = 0, anyOpen = false;
+      g.pins.forEach(function (p) {
+        markers[p.id].el.style.display = "none";
+        lng += p.lng / g.pins.length;
+        lat += p.lat / g.pins.length;
+        anyOpen = anyOpen || p.open;
+      });
+      var el = document.createElement("div");
+      el.className = "cluster";
+      el.setAttribute("role", "button");
+      el.setAttribute("aria-label", g.pins.length + " shops here");
+      el.innerHTML = '<div class="cluster-dot">' + g.pins.length + "</div>";
+      el.querySelector(".cluster-dot").style.background = anyOpen ? COLORS.open : COLORS.closed;
+      el.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var b = new maplibregl.LngLatBounds();
+        g.pins.forEach(function (p) { b.extend([p.lng, p.lat]); });
+        map.fitBounds(b, { padding: 100, maxZoom: CLUSTER_UNTIL_ZOOM + 0.5, duration: 400 });
+      });
+      clusterMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map));
+    });
+  }
+
+  function isShown(p) {
+    return markers[p.id].el.style.display !== "none";
+  }
+
   // Like real map apps: pins always show, but a name that would cover
   // another pin or name is hidden until the user zooms in. The selected
   // shop wins, then open shops.
   function declutter() {
-    var order = PINS.filter(function (p) { return markers[p.id]; }).sort(function (a, b) {
-      return (b.id === selectedId) - (a.id === selectedId) || (b.open - a.open);
-    });
+    var order = byPriority().filter(isShown);
     var dots = order.map(function (p) {
       return { id: p.id, rect: markers[p.id].el.querySelector(".pin-dot").getBoundingClientRect() };
+    });
+    clusterMarkers.forEach(function (m, i) {
+      dots.push({ id: "cluster-" + i, rect: m.getElement().getBoundingClientRect() });
     });
     var placed = [];
     order.forEach(function (p) {
@@ -168,10 +242,15 @@ export function buildMapHtml({
     });
   }
 
+  function refresh() {
+    cluster();
+    declutter();
+  }
+
   window.setSelected = function (id) {
     selectedId = id;
     PINS.forEach(function (pin) { if (markers[pin.id]) styleMarker(pin); });
-    declutter();
+    refresh();
   };
 
   function distanceKm(a, b) {
@@ -238,8 +317,8 @@ export function buildMapHtml({
       styleMarker(pin);
     });
     frame(PINS);
-    map.on("moveend", declutter);
-    map.on("load", declutter);
+    map.on("moveend", refresh);
+    map.on("load", refresh);
 
     // A style that never loads (offline, blocked) → friendly fallback.
     var loadTimer = setTimeout(function () { if (!map.isStyleLoaded()) showFallback(); }, 12000);

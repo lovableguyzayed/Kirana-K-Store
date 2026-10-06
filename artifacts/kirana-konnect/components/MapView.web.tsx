@@ -41,6 +41,11 @@ export default function MapViewComponent({ onShopPress, selectedShop }: MapViewC
     [shops, colors.primary, colors.accent],
   );
 
+  // Served from a blob: URL rather than srcdoc — MapLibre never finishes
+  // loading inside an about:srcdoc document (verified in Chromium).
+  const pageUrl = useMemo(() => URL.createObjectURL(new Blob([html], { type: "text/html" })), [html]);
+  useEffect(() => () => URL.revokeObjectURL(pageUrl), [pageUrl]);
+
   useEffect(() => setReady(false), [html]);
 
   const mapWindow = () => frameRef.current?.contentWindow as MapWindow | null | undefined;
@@ -89,7 +94,7 @@ export default function MapViewComponent({ onShopPress, selectedShop }: MapViewC
     <iframe
       ref={frameRef}
       title="Map of nearby shops"
-      srcDoc={html}
+      src={pageUrl}
       allow="geolocation"
       style={{ border: 0, width: "100%", height: "100%", display: "block" }}
     />
