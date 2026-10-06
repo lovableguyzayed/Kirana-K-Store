@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   KeyboardAvoidingView,
@@ -18,6 +19,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Product, useApp } from "@/context/AppContext";
+import { useToast } from "@/context/ToastContext";
 import { useColors } from "@/hooks/useColors";
 
 const UNIT_OPTIONS = ["piece", "packet", "kg", "g", "bag", "litre", "ml", "box", "bar", "pack", "loaf", "tube"];
@@ -43,6 +45,8 @@ export default function InventoryScreen() {
   const shopId = currentUser?.shopId ?? "s1";
   const products = (shopProducts[shopId] ?? []) as Product[];
 
+  const { showToast } = useToast();
+  const [saving, setSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -87,32 +91,44 @@ export default function InventoryScreen() {
     setShowModal(true);
   };
 
-  const handleSave = () => {
-    if (!form.name || !form.price) return;
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (editProduct) {
-      updateProduct(shopId, editProduct.id, {
-        name: form.name,
-        price: Number(form.price),
-        stock: Number(form.stock),
-        unit: form.unit,
-        category: form.category,
-        description: form.description,
-        isWeightBased: form.isWeightBased,
-      });
-    } else {
-      addProduct(shopId, {
-        name: form.name,
-        price: Number(form.price),
-        stock: Number(form.stock),
-        unit: form.unit,
-        category: form.category,
-        description: form.description,
-        isWeightBased: form.isWeightBased,
-        isActive: true,
-      });
+  const handleSave = async () => {
+    const name = form.name.trim();
+    const price = Number(form.price);
+    const stock = form.stock.trim() === "" ? 0 : Number(form.stock);
+    if (!name || !Number.isFinite(price) || price <= 0) {
+      showToast("Enter a product name and a price above ₹0", "error");
+      return;
     }
-    setShowModal(false);
+    if (!Number.isInteger(stock) || stock < 0) {
+      showToast("Stock must be a whole number (0 or more)", "error");
+      return;
+    }
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    const fields = {
+      name,
+      price,
+      stock,
+      unit: form.unit,
+      category: form.category,
+      description: form.description.trim(),
+      isWeightBased: form.isWeightBased,
+    };
+    setSaving(true);
+    try {
+      if (editProduct) {
+        await updateProduct(shopId, editProduct.id, fields);
+        showToast(`${name} updated`);
+      } else {
+        await addProduct(shopId, { ...fields, isActive: true });
+        showToast(`${name} added — customers can see it now`);
+      }
+      setShowModal(false);
+    } catch {
+      showToast("Couldn't save. Check your connection and try again.", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = (id: string, name: string) => {
@@ -124,17 +140,26 @@ export default function InventoryScreen() {
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => {
+          onPress: async () => {
             if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            deleteProduct(shopId, id);
+            try {
+              await deleteProduct(shopId, id);
+              showToast(`${name} deleted`);
+            } catch {
+              showToast(`Couldn't delete ${name}. Please try again.`, "error");
+            }
           },
         },
       ]
     );
   };
 
-  const handleToggleActive = (id: string) => {
-    toggleProductActive(shopId, id);
+  const handleToggleActive = async (id: string) => {
+    try {
+      await toggleProductActive(shopId, id);
+    } catch {
+      showToast("Couldn't update visibility. Please try again.", "error");
+    }
   };
 
   const allCats = ["All", ...CATEGORIES];
@@ -432,14 +457,21 @@ export default function InventoryScreen() {
               <TouchableOpacity
                 style={[styles.saveBtn, { backgroundColor: form.name && form.price ? colors.primary : colors.muted, marginBottom: 32 }]}
                 onPress={handleSave}
-                disabled={!form.name || !form.price}
+                disabled={!form.name || !form.price || saving}
                 accessibilityLabel={editProduct ? "Save changes" : "Add product"}
                 accessibilityRole="button"
+                accessibilityState={{ busy: saving }}
               >
-                <Feather name={editProduct ? "check" : "plus"} size={18} color={form.name && form.price ? "#fff" : colors.mutedForeground} />
-                <Text style={[styles.saveBtnText, { color: form.name && form.price ? "#fff" : colors.mutedForeground }]}>
-                  {editProduct ? "Save Changes" : "Add Product"}
-                </Text>
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Feather name={editProduct ? "check" : "plus"} size={18} color={form.name && form.price ? "#fff" : colors.mutedForeground} />
+                    <Text style={[styles.saveBtnText, { color: form.name && form.price ? "#fff" : colors.mutedForeground }]}>
+                      {editProduct ? "Save Changes" : "Add Product"}
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
             </ScrollView>
           </KeyboardAvoidingView>

@@ -2,15 +2,26 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 import {
+  ApiError,
+  createProduct as apiCreateProduct,
+  deleteProduct as apiDeleteProduct,
+  getMyShop as apiGetMyShop,
   getOrder as apiGetOrder,
   listOrders as apiListOrders,
+  listShopInventory as apiListShopInventory,
   listShopOrders as apiListShopOrders,
   listShopProducts as apiListShopProducts,
   listShops as apiListShops,
   placeOrder as apiPlaceOrder,
+  registerShop as apiRegisterShop,
+  setExtraHeadersGetter,
   updateOrderStatus as apiUpdateOrderStatus,
+  updateProduct as apiUpdateProduct,
   type Order as ApiOrder,
   type Product as ApiProduct,
+  type ProductInput,
+  type ProductUpdate,
+  type RegisterShopRequest,
   type Shop as ApiShop,
 } from "@workspace/api-client-react";
 
@@ -88,10 +99,13 @@ interface AppContextType {
   currentUser: AppUser | null;
   setCurrentUser: (user: AppUser | null) => void;
   shopProducts: Record<string, Product[]>;
-  addProduct: (shopId: string, product: Omit<Product, "id" | "shopId" | "shopName">) => void;
-  updateProduct: (shopId: string, productId: string, updates: Partial<Product>) => void;
-  deleteProduct: (shopId: string, productId: string) => void;
-  toggleProductActive: (shopId: string, productId: string) => void;
+  addProduct: (shopId: string, product: Omit<Product, "id" | "shopId" | "shopName">) => Promise<void>;
+  updateProduct: (shopId: string, productId: string, updates: Partial<Product>) => Promise<void>;
+  deleteProduct: (shopId: string, productId: string) => Promise<void>;
+  toggleProductActive: (shopId: string, productId: string) => Promise<void>;
+  refreshInventory: (shopId: string) => Promise<void>;
+  lookupMyShop: (phone: string) => Promise<Shop | null>;
+  registerShop: (input: RegisterShopRequest) => Promise<Shop>;
   cartShopId: string | null;
   addToCart: (product: Product, opts?: { selectedWeight?: string; priceOverride?: number }) => void;
   replaceCart: (product: Product, opts?: { selectedWeight?: string; priceOverride?: number }) => void;
@@ -416,6 +430,32 @@ function apiProductToApp(p: ApiProduct): Product {
   };
 }
 
+function productToApiInput(p: Omit<Product, "id" | "shopId" | "shopName">): ProductInput {
+  return {
+    name: p.name,
+    price: p.price,
+    unit: p.unit,
+    category: p.category,
+    stock: p.stock,
+    ...(p.description ? { description: p.description } : {}),
+    isWeightBased: p.isWeightBased ?? false,
+    isActive: p.isActive ?? true,
+  };
+}
+
+function productToApiUpdate(u: Partial<Product>): ProductUpdate {
+  const update: ProductUpdate = {};
+  if (u.name !== undefined) update.name = u.name;
+  if (u.price !== undefined) update.price = u.price;
+  if (u.unit !== undefined) update.unit = u.unit;
+  if (u.category !== undefined) update.category = u.category;
+  if (u.stock !== undefined) update.stock = u.stock;
+  if (u.description !== undefined) update.description = u.description;
+  if (u.isWeightBased !== undefined) update.isWeightBased = u.isWeightBased;
+  if (u.isActive !== undefined) update.isActive = u.isActive;
+  return update;
+}
+
 function apiOrderToApp(o: ApiOrder): Order {
   return {
     id: o.id,
@@ -557,57 +597,122 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const addProduct = useCallback(
-    (shopId: string, product: Omit<Product, "id" | "shopId" | "shopName">) => {
-      const shop = shops.find((s) => s.id === shopId);
-      const newProduct: Product = {
-        ...product,
-        id: `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`,
-        shopId,
-        shopName: shop?.name ?? "",
-        isActive: true,
-      };
-      setShopProducts((prev) => ({
-        ...prev,
-        [shopId]: [...(prev[shopId] ?? []), newProduct],
-      }));
+  // Identify the signed-in user to the API before real SMS login is live
+  // (the server ignores this header once REQUIRE_AUTH is on; a verified
+  // login token always takes precedence).
+  useEffect(() => {
+    setExtraHeadersGetter(() =>
+      currentUser ? { "x-demo-phone": currentUser.phone } : null,
+    );
+  }, [currentUser]);
+
+  // Shopkeepers see their full inventory, including hidden products.
+  const refreshInventory = useCallback(async (shopId: string) => {
+    try {
+      const products = await apiListShopInventory(shopId);
+      setShopProducts((prev) => ({ ...prev, [shopId]: products.map(apiProductToApp) }));
+    } catch {
+      // Offline — keep the local copy.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isLive && currentUser?.role === "shopkeeper" && currentUser.shopId) {
+      refreshInventory(currentUser.shopId);
+    }
+  }, [isLive, currentUser, refreshInventory]);
+
+  const setLocalProducts = useCallback(
+    (shopId: string, update: (products: Product[]) => Product[]) => {
+      setShopProducts((prev) => ({ ...prev, [shopId]: update(prev[shopId] ?? []) }));
     },
-    [shops]
+    [],
+  );
+
+  // Inventory writes go to the server so customers see them. Edits are
+  // applied optimistically; on failure the server copy is restored and the
+  // error is rethrown for the screen to report.
+  const addProduct = useCallback(
+    async (shopId: string, product: Omit<Product, "id" | "shopId" | "shopName">) => {
+      if (isLive) {
+        const created = await apiCreateProduct(shopId, productToApiInput(product));
+        setLocalProducts(shopId, (list) => [...list, apiProductToApp(created)]);
+        return;
+      }
+      const shop = shops.find((s) => s.id === shopId);
+      setLocalProducts(shopId, (list) => [
+        ...list,
+        {
+          ...product,
+          id: `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`,
+          shopId,
+          shopName: shop?.name ?? "",
+          isActive: true,
+        },
+      ]);
+    },
+    [isLive, shops, setLocalProducts],
   );
 
   const updateProduct = useCallback(
-    (shopId: string, productId: string, updates: Partial<Product>) => {
-      setShopProducts((prev) => ({
-        ...prev,
-        [shopId]: (prev[shopId] ?? []).map((p) =>
-          p.id === productId ? { ...p, ...updates } : p
-        ),
-      }));
+    async (shopId: string, productId: string, updates: Partial<Product>) => {
+      setLocalProducts(shopId, (list) =>
+        list.map((p) => (p.id === productId ? { ...p, ...updates } : p)),
+      );
+      if (!isLive) return;
+      try {
+        const saved = await apiUpdateProduct(productId, productToApiUpdate(updates));
+        setLocalProducts(shopId, (list) =>
+          list.map((p) => (p.id === productId ? apiProductToApp(saved) : p)),
+        );
+      } catch (err) {
+        await refreshInventory(shopId);
+        throw err;
+      }
     },
-    []
+    [isLive, setLocalProducts, refreshInventory],
   );
 
   const deleteProduct = useCallback(
-    (shopId: string, productId: string) => {
-      setShopProducts((prev) => ({
-        ...prev,
-        [shopId]: (prev[shopId] ?? []).filter((p) => p.id !== productId),
-      }));
+    async (shopId: string, productId: string) => {
+      setLocalProducts(shopId, (list) => list.filter((p) => p.id !== productId));
+      if (!isLive) return;
+      try {
+        await apiDeleteProduct(productId);
+      } catch (err) {
+        await refreshInventory(shopId);
+        throw err;
+      }
     },
-    []
+    [isLive, setLocalProducts, refreshInventory],
   );
 
   const toggleProductActive = useCallback(
-    (shopId: string, productId: string) => {
-      setShopProducts((prev) => ({
-        ...prev,
-        [shopId]: (prev[shopId] ?? []).map((p) =>
-          p.id === productId ? { ...p, isActive: p.isActive === false ? true : false } : p
-        ),
-      }));
+    async (shopId: string, productId: string) => {
+      const current = (shopProducts[shopId] ?? []).find((p) => p.id === productId);
+      if (!current) return;
+      await updateProduct(shopId, productId, { isActive: current.isActive === false });
     },
-    []
+    [shopProducts, updateProduct],
   );
+
+  // Shopkeeper onboarding. lookupMyShop runs before the user is signed in
+  // to the app, so it passes the phone explicitly.
+  const lookupMyShop = useCallback(async (phone: string): Promise<Shop | null> => {
+    try {
+      return apiShopToApp(await apiGetMyShop({ headers: { "x-demo-phone": phone } }));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return null;
+      throw err;
+    }
+  }, []);
+
+  const registerShop = useCallback(async (input: RegisterShopRequest): Promise<Shop> => {
+    const shop = apiShopToApp(await apiRegisterShop(input));
+    setShops((prev) => [...prev.filter((s) => s.id !== shop.id), shop]);
+    setShopProducts((prev) => ({ ...prev, [shop.id]: [] }));
+    return shop;
+  }, []);
 
   const addToCart = useCallback(
     (product: Product, opts?: { selectedWeight?: string; priceOverride?: number }) => {
@@ -777,6 +882,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateProduct,
         deleteProduct,
         toggleProductActive,
+        refreshInventory,
+        lookupMyShop,
+        registerShop,
         cartShopId,
         addToCart,
         replaceCart,
