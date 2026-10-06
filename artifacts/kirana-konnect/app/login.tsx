@@ -130,8 +130,8 @@ export default function LoginScreen() {
         ? "Too many attempts. Please wait a minute and try again."
         : networkFailure
           ? "Couldn't reach the server. Check your internet connection."
-          : otpError.code === "sms_send_failed"
-            ? "We couldn't send the SMS right now. Please try again shortly."
+          : SMS_UNAVAILABLE_CODES.has(otpError.code ?? "")
+            ? "SMS login is temporarily unavailable. Please try again later."
             : "Couldn't send the OTP. Please check the number and try again.",
     );
   };
