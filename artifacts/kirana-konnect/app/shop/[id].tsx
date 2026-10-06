@@ -68,9 +68,13 @@ export default function ShopDetailScreen() {
             <View style={styles.shopMeta}>
               <Feather name="star" size={13} color="#FFD54F" />
               <Text style={styles.shopRating}>{shop.rating}</Text>
-              <Text style={styles.shopDot}>·</Text>
-              <Feather name="map-pin" size={13} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.shopDist}>{shop.distance}</Text>
+              {shop.distance ? (
+                <>
+                  <Text style={styles.shopDot}>·</Text>
+                  <Feather name="map-pin" size={13} color="rgba(255,255,255,0.8)" />
+                  <Text style={styles.shopDist}>{shop.distance}</Text>
+                </>
+              ) : null}
               <View style={[styles.openBadge, { backgroundColor: shopOpen ? "#43A047" : "#ef4444" }]}>
                 <Text style={styles.openText}>{shopOpen ? "Open" : "Closed"}</Text>
               </View>

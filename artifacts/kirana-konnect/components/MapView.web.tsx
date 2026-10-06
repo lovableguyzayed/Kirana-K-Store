@@ -1,9 +1,9 @@
-import { Feather } from "@expo/vector-icons";
-import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import * as Location from "expo-location";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { Shop, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { buildMapHtml } from "@/utils/mapHtml";
 import { isShopCurrentlyOpen } from "@/utils/shopUtils";
 
 interface MapViewComponentProps {
@@ -11,168 +11,92 @@ interface MapViewComponentProps {
   selectedShop: Shop | null;
 }
 
-const PINS = [
-  { id: "s1", xPct: 40, yPct: 45 },
-  { id: "s2", xPct: 60, yPct: 38 },
-  { id: "s3", xPct: 72, yPct: 62 },
-  { id: "s4", xPct: 25, yPct: 58 },
-];
+type MapWindow = Window & {
+  setSelected?: (id: string | null) => void;
+  setUserLocation?: (lat: number, lng: number) => void;
+};
 
+/**
+ * Web build of the home map: the same OpenFreeMap page as the native app,
+ * hosted in an iframe instead of a WebView.
+ */
 export default function MapViewComponent({ onShopPress, selectedShop }: MapViewComponentProps) {
   const colors = useColors();
-  const { shops } = useApp();
+  const { shops, userLocation, setUserLocation } = useApp();
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const [ready, setReady] = useState(false);
+
+  const html = useMemo(
+    () =>
+      buildMapHtml({
+        pins: shops.map((shop) => ({
+          id: shop.id,
+          lat: shop.lat,
+          lng: shop.lng,
+          name: shop.name,
+          open: isShopCurrentlyOpen(shop),
+        })),
+        colors: { open: colors.primary, closed: "#9E9E9E", selected: colors.accent },
+      }),
+    [shops, colors.primary, colors.accent],
+  );
+
+  // Served from a blob: URL rather than srcdoc — MapLibre never finishes
+  // loading inside an about:srcdoc document (verified in Chromium).
+  const pageUrl = useMemo(() => URL.createObjectURL(new Blob([html], { type: "text/html" })), [html]);
+  useEffect(() => () => URL.revokeObjectURL(pageUrl), [pageUrl]);
+
+  useEffect(() => setReady(false), [html]);
+
+  const mapWindow = () => frameRef.current?.contentWindow as MapWindow | null | undefined;
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== frameRef.current?.contentWindow) return;
+      const msg = (event.data as { kkMap?: string } | null)?.kkMap;
+      if (!msg) return;
+      if (msg === "map:ready") setReady(true);
+      else if (msg.startsWith("shop:")) {
+        const shop = shops.find((s) => s.id === msg.slice("shop:".length));
+        if (shop) onShopPress(shop);
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [shops, onShopPress]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted" || cancelled) return;
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (!cancelled) setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      } catch {
+        // No location — the map simply frames the shops.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [setUserLocation]);
+
+  useEffect(() => {
+    if (ready && userLocation) mapWindow()?.setUserLocation?.(userLocation.lat, userLocation.lng);
+  }, [ready, userLocation]);
+
+  useEffect(() => {
+    if (ready) mapWindow()?.setSelected?.(selectedShop?.id ?? null);
+  }, [ready, selectedShop?.id]);
 
   return (
-    <View style={[styles.webMap, { backgroundColor: "#E8F5E9" }]}>
-      <View style={styles.webMapGrid}>
-        {Array.from({ length: 6 }).map((_, row) =>
-          Array.from({ length: 8 }).map((_, col) => (
-            <View
-              key={`${row}-${col}`}
-              style={[
-                styles.gridCell,
-                { borderColor: "#C8E6C9", backgroundColor: (row + col) % 3 === 0 ? "#F1F8E9" : "#E8F5E9" },
-              ]}
-            />
-          ))
-        )}
-      </View>
-      <View style={[styles.roads, { backgroundColor: "#C8E6C9" }]} />
-      <View style={[styles.roadsH, { backgroundColor: "#C8E6C9" }]} />
-      <View style={[styles.roads2, { backgroundColor: "#C8E6C9" }]} />
-      <View style={[styles.userDot, { backgroundColor: "#1976D2", borderColor: "#fff" }]}>
-        <View style={[styles.userDotInner, { backgroundColor: "#fff" }]} />
-      </View>
-      {PINS.map((pin) => {
-        const shop = shops.find((s) => s.id === pin.id);
-        if (!shop) return null;
-        const isSelected = selectedShop?.id === shop.id;
-        const shopOpen = isShopCurrentlyOpen(shop);
-        return (
-          <View
-            key={shop.id}
-            style={[
-              styles.mapPin,
-              {
-                left: `${pin.xPct}%` as any,
-                top: `${pin.yPct}%` as any,
-                backgroundColor: isSelected
-                  ? colors.accent
-                  : shopOpen ? colors.primary : "#9E9E9E",
-                borderColor: "#fff",
-                transform: [{ scale: isSelected ? 1.2 : 1 }],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => onShopPress(shop)}
-              style={styles.pinTouchable}
-              accessibilityLabel={`${shop.name} — ${shopOpen ? "Open" : "Closed"}`}
-              accessibilityRole="button"
-            >
-              <Feather name="shopping-bag" size={12} color="#fff" />
-            </TouchableOpacity>
-            {isSelected && (
-              <View style={[styles.pinLabel, { backgroundColor: colors.primary }]}>
-                <Text style={styles.pinLabelText}>{shop.name}</Text>
-              </View>
-            )}
-          </View>
-        );
-      })}
-    </View>
+    <iframe
+      ref={frameRef}
+      title="Map of nearby shops"
+      src={pageUrl}
+      allow="geolocation"
+      style={{ border: 0, width: "100%", height: "100%", display: "block" }}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  webMap: {
-    flex: 1,
-    overflow: "hidden",
-    position: "relative",
-  },
-  webMapGrid: {
-    ...StyleSheet.absoluteFillObject,
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  gridCell: {
-    width: "12.5%",
-    height: "16.66%",
-    borderWidth: 0.5,
-  },
-  roads: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: "40%",
-    height: 8,
-    opacity: 0.8,
-  },
-  roadsH: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: "65%",
-    height: 8,
-    opacity: 0.8,
-  },
-  roads2: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: "50%",
-    width: 8,
-    opacity: 0.8,
-  },
-  userDot: {
-    position: "absolute",
-    left: "48%",
-    top: "48%",
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 3,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  userDotInner: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  mapPin: {
-    position: "absolute",
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  pinTouchable: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 16,
-  },
-  pinLabel: {
-    position: "absolute",
-    bottom: 36,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    minWidth: 80,
-    alignItems: "center",
-  },
-  pinLabelText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "600",
-  },
-});

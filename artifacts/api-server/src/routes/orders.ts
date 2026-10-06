@@ -17,6 +17,12 @@ import {
   PlaceOrderBody,
   UpdateOrderStatusBody,
 } from "@workspace/api-zod";
+import {
+  callerPhone,
+  canManageShop,
+  normalizePhone,
+  requireAuthIfEnabled,
+} from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -34,7 +40,7 @@ function parseWeightKg(label: string): number | null {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-router.post("/orders", async (req, res) => {
+router.post("/orders", requireAuthIfEnabled, async (req, res) => {
   const parsed = PlaceOrderBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid request" });
@@ -112,7 +118,9 @@ router.post("/orders", async (req, res) => {
     .values({
       shopId: shop.id,
       shopName: shop.name,
-      customerPhone: body.customerPhone,
+      // A verified login token is the source of truth for identity; the
+      // body value is only trusted for anonymous (pre-auth rollout) callers.
+      customerPhone: normalizePhone(req.auth?.phone ?? body.customerPhone),
       items,
       total: round2(subtotal + deliveryFee),
       deliveryFee,
@@ -125,9 +133,10 @@ router.post("/orders", async (req, res) => {
   res.status(201).json(GetOrderResponse.parse(order));
 });
 
-router.get("/orders", async (req, res) => {
+router.get("/orders", requireAuthIfEnabled, async (req, res) => {
   const parsed = ListOrdersQueryParams.safeParse(req.query);
-  if (!parsed.success || !parsed.data.phone.trim()) {
+  const phone = req.auth?.phone ?? (parsed.success ? parsed.data.phone : "");
+  if (!phone.trim()) {
     res.status(400).json({ message: "phone query parameter is required" });
     return;
   }
@@ -135,7 +144,7 @@ router.get("/orders", async (req, res) => {
   const orders = await db
     .select()
     .from(ordersTable)
-    .where(eq(ordersTable.customerPhone, parsed.data.phone))
+    .where(eq(ordersTable.customerPhone, normalizePhone(phone)))
     .orderBy(desc(ordersTable.placedAt));
 
   res.json(ListOrdersResponse.parse(orders));
@@ -156,7 +165,7 @@ router.get("/orders/:orderId", async (req, res) => {
   res.json(GetOrderResponse.parse(order));
 });
 
-router.patch("/orders/:orderId/status", async (req, res) => {
+router.patch<{ orderId: string }>("/orders/:orderId/status", requireAuthIfEnabled, async (req, res) => {
   const parsed = UpdateOrderStatusBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "Invalid status" });
@@ -181,6 +190,23 @@ router.patch("/orders/:orderId/status", async (req, res) => {
     return;
   }
 
+  // The shop's owner drives the lifecycle; the order's own customer may
+  // only cancel while it is still pending.
+  const [shop] = await db
+    .select({ ownerPhone: shopsTable.ownerPhone })
+    .from(shopsTable)
+    .where(eq(shopsTable.id, order.shopId))
+    .limit(1);
+  const isOwner = !!shop && canManageShop(shop, req);
+  const isCustomerCancel =
+    order.status === "pending" &&
+    nextStatus === "rejected" &&
+    callerPhone(req) === order.customerPhone;
+  if (!isOwner && !isCustomerCancel) {
+    res.status(403).json({ message: "Not allowed to update this order" });
+    return;
+  }
+
   const [updated] = await db
     .update(ordersTable)
     .set({ status: nextStatus })
@@ -190,14 +216,19 @@ router.patch("/orders/:orderId/status", async (req, res) => {
   res.json(GetOrderResponse.parse(updated));
 });
 
-router.get("/shops/:shopId/orders", async (req, res) => {
+router.get<{ shopId: string }>("/shops/:shopId/orders", requireAuthIfEnabled, async (req, res) => {
   const [shop] = await db
-    .select({ id: shopsTable.id })
+    .select({ id: shopsTable.id, ownerPhone: shopsTable.ownerPhone })
     .from(shopsTable)
     .where(eq(shopsTable.id, req.params.shopId))
     .limit(1);
   if (!shop) {
     res.status(404).json({ message: "Shop not found" });
+    return;
+  }
+  // Orders carry customers' phones and addresses — owner only.
+  if (!canManageShop(shop, req)) {
+    res.status(403).json({ message: "Not allowed to view this shop's orders" });
     return;
   }
 

@@ -5,7 +5,8 @@ import type { Product, Shop } from "./schema";
 // Initial catalog, carried over from the app's original mock data. IDs are
 // stable ("s1", "p1", …) so devices that cached mock IDs keep working.
 
-type ShopSeed = Omit<Shop, "createdAt">;
+// Seeded shops are demo shops: deliberately unowned (see canManageShop).
+type ShopSeed = Omit<Shop, "createdAt" | "ownerPhone" | "ownerName">;
 type ProductSeed = Omit<Product, "createdAt" | "description" | "image"> & {
   description?: string;
 };

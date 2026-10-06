@@ -24,6 +24,13 @@ services:
       # Session pooler, port 5432). Set in the dashboard — never commit it.
       - key: DATABASE_URL
         sync: false
+      # Enables verification of Supabase login tokens (public value).
+      - key: SUPABASE_URL
+        value: https://oxekfjyvboccekwjafcq.supabase.co
+      # Set to "true" once the Supabase SMS provider is live: anonymous order
+      # requests are then rejected and identity comes only from login tokens.
+      - key: REQUIRE_AUTH
+        value: "false"
       # Comma-separated list of origins allowed by CORS, e.g.
       # "https://app.yourdomain.com,https://kirana-web.onrender.com".
       # Leave unset to allow all origins (fine while testing, not for production).

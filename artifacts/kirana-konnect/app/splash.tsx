@@ -39,7 +39,9 @@ export default function SplashScreen() {
         if (raw) {
           const user = JSON.parse(raw);
           if (user?.role === "shopkeeper") {
-            router.replace("/(shopkeeper)/dashboard");
+            // A shopkeeper who signed in but hasn't registered a shop yet
+            // resumes registration rather than seeing a shop that isn't theirs.
+            router.replace(user.shopId ? "/(shopkeeper)/dashboard" : "/register-shop");
           } else {
             router.replace("/(tabs)");
           }

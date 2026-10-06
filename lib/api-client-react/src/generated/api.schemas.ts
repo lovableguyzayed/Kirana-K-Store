@@ -5,6 +5,100 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface AppConfig {
+  /** When true, a verified phone login is required; when false the app may offer demo sign-in */
+  requireAuth: boolean;
+}
+
+export interface RegisterShopRequest {
+  /**
+   * @minLength 2
+   * @maxLength 80
+   */
+  name: string;
+  /**
+   * @minLength 2
+   * @maxLength 80
+   */
+  ownerName: string;
+  /**
+   * @minLength 5
+   * @maxLength 200
+   */
+  address: string;
+  /**
+   * @minimum -90
+   * @maximum 90
+   */
+  lat: number;
+  /**
+   * @minimum -180
+   * @maximum 180
+   */
+  lng: number;
+  /** @pattern ^([01]\d|2[0-3]):[0-5]\d$ */
+  openTime: string;
+  /** @pattern ^([01]\d|2[0-3]):[0-5]\d$ */
+  closeTime: string;
+  /**
+   * @minItems 1
+   * @maxItems 12
+   */
+  categories: string[];
+}
+
+export interface ProductInput {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  name: string;
+  /** @exclusiveMinimum 0 */
+  price: number;
+  /**
+   * @minLength 1
+   * @maxLength 20
+   */
+  unit: string;
+  /**
+   * @minLength 1
+   * @maxLength 40
+   */
+  category: string;
+  /** @minimum 0 */
+  stock: number;
+  /** @maxLength 1000 */
+  description?: string;
+  isWeightBased?: boolean;
+  isActive?: boolean;
+}
+
+export interface ProductUpdate {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  name?: string;
+  /** @exclusiveMinimum 0 */
+  price?: number;
+  /**
+   * @minLength 1
+   * @maxLength 20
+   */
+  unit?: string;
+  /**
+   * @minLength 1
+   * @maxLength 40
+   */
+  category?: string;
+  /** @minimum 0 */
+  stock?: number;
+  /** @maxLength 1000 */
+  description?: string;
+  isWeightBased?: boolean;
+  isActive?: boolean;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -112,6 +206,7 @@ export interface Shop {
   isOpen: boolean;
   categories: string[];
   image?: string | null;
+  ownerName?: string | null;
 }
 
 export interface Product {

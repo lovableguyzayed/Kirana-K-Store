@@ -16,6 +16,18 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * Settings the app needs before sign-in (e.g. whether login is enforced)
+ * @summary Public app configuration
+ */
+export const GetAppConfigResponse = zod.object({
+  requireAuth: zod
+    .boolean()
+    .describe(
+      "When true, a verified phone login is required; when false the app may offer demo sign-in",
+    ),
+});
+
+/**
  * Returns all shops
  * @summary List shops
  */
@@ -31,8 +43,98 @@ export const ListShopsResponseItem = zod.object({
   isOpen: zod.boolean(),
   categories: zod.array(zod.string()),
   image: zod.string().nullish(),
+  ownerName: zod.string().nullish(),
 });
 export const ListShopsResponse = zod.array(ListShopsResponseItem);
+
+/**
+ * Creates a shop owned by the calling shopkeeper (one shop per owner)
+ * @summary Register a shop
+ */
+export const registerShopBodyNameMin = 2;
+export const registerShopBodyNameMax = 80;
+
+export const registerShopBodyOwnerNameMin = 2;
+export const registerShopBodyOwnerNameMax = 80;
+
+export const registerShopBodyAddressMin = 5;
+export const registerShopBodyAddressMax = 200;
+
+export const registerShopBodyLatMin = -90;
+export const registerShopBodyLatMax = 90;
+
+export const registerShopBodyLngMin = -180;
+export const registerShopBodyLngMax = 180;
+
+export const registerShopBodyOpenTimeRegExp = new RegExp(
+  "^([01]\\d|2[0-3]):[0-5]\\d$",
+);
+export const registerShopBodyCloseTimeRegExp = new RegExp(
+  "^([01]\\d|2[0-3]):[0-5]\\d$",
+);
+export const registerShopBodyCategoriesMax = 12;
+
+export const RegisterShopBody = zod.object({
+  name: zod.string().min(registerShopBodyNameMin).max(registerShopBodyNameMax),
+  ownerName: zod
+    .string()
+    .min(registerShopBodyOwnerNameMin)
+    .max(registerShopBodyOwnerNameMax),
+  address: zod
+    .string()
+    .min(registerShopBodyAddressMin)
+    .max(registerShopBodyAddressMax),
+  lat: zod.number().min(registerShopBodyLatMin).max(registerShopBodyLatMax),
+  lng: zod.number().min(registerShopBodyLngMin).max(registerShopBodyLngMax),
+  openTime: zod.string().regex(registerShopBodyOpenTimeRegExp),
+  closeTime: zod.string().regex(registerShopBodyCloseTimeRegExp),
+  categories: zod.array(zod.string()).min(1).max(registerShopBodyCategoriesMax),
+});
+
+/**
+ * Returns the shop owned by the calling shopkeeper
+ * @summary Get the caller's shop
+ */
+export const GetMyShopResponse = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  address: zod.string(),
+  lat: zod.number(),
+  lng: zod.number(),
+  rating: zod.number(),
+  openTime: zod.string(),
+  closeTime: zod.string(),
+  isOpen: zod.boolean(),
+  categories: zod.array(zod.string()),
+  image: zod.string().nullish(),
+  ownerName: zod.string().nullish(),
+});
+
+/**
+ * All products including inactive ones; shop owner only
+ * @summary List a shop's full inventory
+ */
+export const ListShopInventoryParams = zod.object({
+  shopId: zod.coerce.string(),
+});
+
+export const ListShopInventoryResponseItem = zod.object({
+  id: zod.string(),
+  shopId: zod.string(),
+  shopName: zod.string(),
+  name: zod.string(),
+  price: zod.number(),
+  unit: zod.string(),
+  category: zod.string(),
+  stock: zod.number(),
+  description: zod.string().nullish(),
+  image: zod.string().nullish(),
+  isWeightBased: zod.boolean(),
+  isActive: zod.boolean(),
+});
+export const ListShopInventoryResponse = zod.array(
+  ListShopInventoryResponseItem,
+);
 
 /**
  * Returns a single shop by id
@@ -54,6 +156,7 @@ export const GetShopResponse = zod.object({
   isOpen: zod.boolean(),
   categories: zod.array(zod.string()),
   image: zod.string().nullish(),
+  ownerName: zod.string().nullish(),
 });
 
 /**
@@ -79,6 +182,37 @@ export const ListShopProductsResponseItem = zod.object({
   isActive: zod.boolean(),
 });
 export const ListShopProductsResponse = zod.array(ListShopProductsResponseItem);
+
+/**
+ * Shop owner only
+ * @summary Add a product to a shop
+ */
+export const CreateProductParams = zod.object({
+  shopId: zod.coerce.string(),
+});
+
+export const createProductBodyNameMax = 120;
+
+export const createProductBodyPriceExclusiveMin = 0;
+
+export const createProductBodyUnitMax = 20;
+
+export const createProductBodyCategoryMax = 40;
+
+export const createProductBodyStockMin = 0;
+
+export const createProductBodyDescriptionMax = 1000;
+
+export const CreateProductBody = zod.object({
+  name: zod.string().min(1).max(createProductBodyNameMax),
+  price: zod.number().gt(createProductBodyPriceExclusiveMin),
+  unit: zod.string().min(1).max(createProductBodyUnitMax),
+  category: zod.string().min(1).max(createProductBodyCategoryMax),
+  stock: zod.number().min(createProductBodyStockMin),
+  description: zod.string().max(createProductBodyDescriptionMax).optional(),
+  isWeightBased: zod.boolean().optional(),
+  isActive: zod.boolean().optional(),
+});
 
 /**
  * Creates an order; prices are computed server-side from the catalog
@@ -291,4 +425,58 @@ export const GetProductResponse = zod.object({
   image: zod.string().nullish(),
   isWeightBased: zod.boolean(),
   isActive: zod.boolean(),
+});
+
+/**
+ * Shop owner only; send only the fields to change
+ * @summary Update a product
+ */
+export const UpdateProductParams = zod.object({
+  productId: zod.coerce.string(),
+});
+
+export const updateProductBodyNameMax = 120;
+
+export const updateProductBodyPriceExclusiveMin = 0;
+
+export const updateProductBodyUnitMax = 20;
+
+export const updateProductBodyCategoryMax = 40;
+
+export const updateProductBodyStockMin = 0;
+
+export const updateProductBodyDescriptionMax = 1000;
+
+export const UpdateProductBody = zod.object({
+  name: zod.string().min(1).max(updateProductBodyNameMax).optional(),
+  price: zod.number().gt(updateProductBodyPriceExclusiveMin).optional(),
+  unit: zod.string().min(1).max(updateProductBodyUnitMax).optional(),
+  category: zod.string().min(1).max(updateProductBodyCategoryMax).optional(),
+  stock: zod.number().min(updateProductBodyStockMin).optional(),
+  description: zod.string().max(updateProductBodyDescriptionMax).optional(),
+  isWeightBased: zod.boolean().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateProductResponse = zod.object({
+  id: zod.string(),
+  shopId: zod.string(),
+  shopName: zod.string(),
+  name: zod.string(),
+  price: zod.number(),
+  unit: zod.string(),
+  category: zod.string(),
+  stock: zod.number(),
+  description: zod.string().nullish(),
+  image: zod.string().nullish(),
+  isWeightBased: zod.boolean(),
+  isActive: zod.boolean(),
+});
+
+/**
+ * Shop owner only
+ * @summary Delete a product
+ */
+export const DeleteProductParams = zod.object({
+  productId: zod.coerce.string(),
 });

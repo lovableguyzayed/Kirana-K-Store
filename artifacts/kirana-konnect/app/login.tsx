@@ -15,22 +15,58 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { getAppConfig } from "@workspace/api-client-react";
+
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { supabase } from "@/utils/supabase";
+
+// Steps: enter phone → enter the SMS OTP ("otp"), or — while real SMS login
+// isn't available — continue without one ("demo").
+//
+// Whether the no-OTP path may be offered is decided by the API's
+// REQUIRE_AUTH setting (GET /api/config), not by the app: once real login is
+// enforced the server rejects unverified users anyway, so the app goes
+// strict too and never offers it.
+type Step = "phone" | "otp" | "demo";
+
+const toE164 = (phone: string) => `+91${phone}`;
+
+// Supabase errors that mean "SMS login isn't set up / can't send", as opposed
+// to a problem with this attempt.
+const SMS_UNAVAILABLE_CODES = new Set([
+  "phone_provider_disabled",
+  "sms_send_failed",
+  "otp_disabled",
+  "signup_disabled",
+]);
+
+const OTP_SEND_TIMEOUT_MS = 15000;
 
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setCurrentUser } = useApp();
+  const { setCurrentUser, lookupMyShop } = useApp();
 
   const [phone, setPhone] = useState("");
-  const [step, setStep] = useState<"phone" | "otp">("phone");
+  const [step, setStep] = useState<Step>("phone");
+  // null = unknown (older server without /config, or unreachable).
+  const [requireAuth, setRequireAuth] = useState<boolean | null>(null);
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [isShopkeeperMode, setIsShopkeeperMode] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(30);
   const [canResend, setCanResend] = useState(false);
+  // Bumped on every successful send so a resend restarts the countdown.
+  const [otpSentAt, setOtpSentAt] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const otpRefs = useRef<(TextInput | null)[]>([]);
+
+  useEffect(() => {
+    getAppConfig()
+      .then((config) => setRequireAuth(config.requireAuth))
+      .catch(() => setRequireAuth(null));
+  }, []);
 
   useEffect(() => {
     if (step !== "otp") return;
@@ -47,16 +83,57 @@ export default function LoginScreen() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [step]);
+  }, [step, otpSentAt]);
 
-  const handleSendOtp = () => {
+  const handleSendOtp = async () => {
     if (phone.length < 10) return;
     setLoading(true);
+    setError(null);
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setTimeout(() => {
-      setLoading(false);
+
+    let otpError: { code?: string; status?: number } | null;
+    try {
+      const result = await Promise.race([
+        supabase.auth.signInWithOtp({ phone: toE164(phone) }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), OTP_SEND_TIMEOUT_MS)),
+      ]);
+      otpError = result.error;
+    } catch {
+      otpError = { status: 0 }; // timed out or couldn't reach Supabase
+    }
+    setLoading(false);
+
+    if (!otpError) {
+      setOtp(["", "", "", "", "", ""]);
+      setOtpSentAt(Date.now());
       setStep("otp");
-    }, 1000);
+      return;
+    }
+
+    const rateLimited = otpError.code === "over_sms_send_rate_limit" || otpError.status === 429;
+    const networkFailure = otpError.status === undefined || otpError.status === 0;
+    // Offer the no-OTP path only while the server doesn't require login:
+    // explicitly off → whenever SMS can't be used; unknown (older server) →
+    // only when Supabase says SMS isn't set up.
+    const allowDemo =
+      !rateLimited &&
+      (requireAuth === false ||
+        (requireAuth === null && !networkFailure &&
+          (SMS_UNAVAILABLE_CODES.has(otpError.code ?? "") || (otpError.status ?? 0) >= 400)));
+    if (allowDemo) {
+      setStep("demo");
+      return;
+    }
+
+    setError(
+      rateLimited
+        ? "Too many attempts. Please wait a minute and try again."
+        : networkFailure
+          ? "Couldn't reach the server. Check your internet connection."
+          : SMS_UNAVAILABLE_CODES.has(otpError.code ?? "")
+            ? "SMS login is temporarily unavailable. Please try again later."
+            : "Couldn't send the OTP. Please check the number and try again.",
+    );
   };
 
   const handleOtpChange = (val: string, idx: number) => {
@@ -68,26 +145,72 @@ export default function LoginScreen() {
     }
   };
 
-  const handleVerify = () => {
-    if (otp.join("").length < 6) return;
+  const handleVerify = async () => {
+    const code = otp.join("");
+    if (code.length < 6) return;
     setLoading(true);
+    setError(null);
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setTimeout(() => {
+
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      phone: toE164(phone),
+      token: code,
+      type: "sms",
+    });
+    if (verifyError) {
       setLoading(false);
-      if (isShopkeeperMode) {
-        setCurrentUser({
-          phone,
-          role: "shopkeeper",
-          shopId: "s1",
-          shopName: "Gupta Kirana Store",
-          ownerName: "Ramesh Gupta",
-        });
-        router.replace("/(shopkeeper)/dashboard");
-      } else {
-        setCurrentUser({ phone, role: "customer" });
-        router.replace("/(tabs)");
+      setOtp(["", "", "", "", "", ""]);
+      otpRefs.current[0]?.focus();
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setError(
+        verifyError.code === "otp_expired"
+          ? "This OTP has expired. Tap Resend to get a new one."
+          : "Incorrect OTP. Please try again.",
+      );
+      return;
+    }
+    await completeLogin();
+  };
+
+  // Continue without an OTP (only offered while the server doesn't
+  // require real login).
+  const handleContinueDemo = async () => {
+    setLoading(true);
+    setError(null);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await completeLogin();
+  };
+
+  const completeLogin = async () => {
+    if (isShopkeeperMode) {
+      // Send the shopkeeper to their own shop, or to registration if they
+      // don't have one yet.
+      try {
+        const shop = await lookupMyShop(phone);
+        setLoading(false);
+        if (shop) {
+          setCurrentUser({
+            phone,
+            role: "shopkeeper",
+            shopId: shop.id,
+            shopName: shop.name,
+            ownerName: shop.ownerName,
+          });
+          router.replace("/(shopkeeper)/dashboard");
+        } else {
+          setCurrentUser({ phone, role: "shopkeeper" });
+          router.replace("/register-shop");
+        }
+      } catch {
+        setLoading(false);
+        setError("Couldn't reach the server to find your shop. Please try again.");
       }
-    }, 800);
+      return;
+    }
+
+    setLoading(false);
+    setCurrentUser({ phone, role: "customer" });
+    router.replace("/(tabs)");
   };
 
   const handleResend = () => {
@@ -115,7 +238,11 @@ export default function LoginScreen() {
           </View>
           <Text style={[styles.title, { color: colors.foreground }]}>Kirana Konnect</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            {step === "phone" ? "Enter your mobile number to get started" : "Enter the OTP sent to +91 " + phone}
+            {step === "phone"
+              ? "Enter your mobile number to get started"
+              : step === "otp"
+                ? "Enter the OTP sent to +91 " + phone
+                : "Signing in as +91 " + phone}
           </Text>
         </View>
 
@@ -157,6 +284,54 @@ export default function LoginScreen() {
                     Send OTP
                   </Text>
                 )}
+              </TouchableOpacity>
+              {error && <ErrorMessage message={error} color={colors.destructive} />}
+            </>
+          ) : step === "demo" ? (
+            <>
+              <View
+                style={[styles.demoCard, { backgroundColor: colors.accent + "14", borderColor: colors.accent + "55" }]}
+                accessibilityRole="alert"
+              >
+                <View style={[styles.demoIcon, { backgroundColor: colors.accent + "26" }]}>
+                  <Feather name="message-square" size={18} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={[styles.demoTitle, { color: colors.foreground }]}>
+                    SMS login abhi chalu nahi hai
+                  </Text>
+                  <Text style={[styles.demoText, { color: colors.mutedForeground }]}>
+                    Aap bina OTP ke aage badh sakte hain.{"\n"}SMS isn't set up yet — continue without an OTP.
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+                onPress={handleContinueDemo}
+                disabled={loading}
+                activeOpacity={0.85}
+                accessibilityLabel="Continue without OTP"
+                accessibilityRole="button"
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <View style={styles.btnRow}>
+                    <Text style={[styles.btnText, { color: "#fff" }]}>Continue</Text>
+                    <Feather name="arrow-right" size={18} color="#fff" />
+                  </View>
+                )}
+              </TouchableOpacity>
+              {error && <ErrorMessage message={error} color={colors.destructive} />}
+              <TouchableOpacity
+                onPress={() => {
+                  setError(null);
+                  setStep("phone");
+                }}
+                style={styles.backBtn}
+              >
+                <Feather name="arrow-left" size={14} color={colors.mutedForeground} />
+                <Text style={[styles.backText, { color: colors.mutedForeground }]}>Change number</Text>
               </TouchableOpacity>
             </>
           ) : (
@@ -218,7 +393,14 @@ export default function LoginScreen() {
                   </Text>
                 )}
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setStep("phone")} style={styles.backBtn}>
+              {error && <ErrorMessage message={error} color={colors.destructive} />}
+              <TouchableOpacity
+                onPress={() => {
+                  setError(null);
+                  setStep("phone");
+                }}
+                style={styles.backBtn}
+              >
                 <Feather name="arrow-left" size={14} color={colors.mutedForeground} />
                 <Text style={[styles.backText, { color: colors.mutedForeground }]}>Change number</Text>
               </TouchableOpacity>
@@ -245,8 +427,31 @@ export default function LoginScreen() {
   );
 }
 
+function ErrorMessage({ message, color }: { message: string; color: string }) {
+  return (
+    <View style={styles.errorRow} accessibilityRole="alert" accessibilityLiveRegion="polite">
+      <Feather name="alert-circle" size={14} color={color} />
+      <Text style={[styles.errorText, { color }]}>{message}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  errorRow: { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center" },
+  errorText: { fontSize: 13, fontFamily: "Inter_500Medium", flexShrink: 1, textAlign: "center" },
+  demoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+  },
+  demoIcon: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  demoTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  demoText: { fontSize: 12, fontFamily: "Inter_400Regular", flexShrink: 1, lineHeight: 17 },
+  btnRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   inner: {
     flex: 1,
     paddingHorizontal: 20,

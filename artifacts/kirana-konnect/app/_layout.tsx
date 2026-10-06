@@ -54,6 +54,7 @@ function RootLayoutNav() {
       <Stack.Screen name="search" />
       <Stack.Screen name="help" />
       <Stack.Screen name="about" />
+      <Stack.Screen name="register-shop" options={{ gestureEnabled: false }} />
     </Stack>
   );
 }

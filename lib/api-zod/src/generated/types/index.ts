@@ -7,6 +7,7 @@
  */
 
 export * from "./apiErrorResponse";
+export * from "./appConfig";
 export * from "./healthStatus";
 export * from "./listOrdersParams";
 export * from "./order";
@@ -19,5 +20,8 @@ export * from "./placeOrderRequestItemsItem";
 export * from "./placeOrderRequestMode";
 export * from "./placeOrderRequestPaymentMethod";
 export * from "./product";
+export * from "./productInput";
+export * from "./productUpdate";
+export * from "./registerShopRequest";
 export * from "./shop";
 export * from "./updateOrderStatusRequest";
