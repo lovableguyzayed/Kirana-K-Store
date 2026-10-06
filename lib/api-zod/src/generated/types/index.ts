@@ -19,5 +19,8 @@ export * from "./placeOrderRequestItemsItem";
 export * from "./placeOrderRequestMode";
 export * from "./placeOrderRequestPaymentMethod";
 export * from "./product";
+export * from "./productInput";
+export * from "./productUpdate";
+export * from "./registerShopRequest";
 export * from "./shop";
 export * from "./updateOrderStatusRequest";

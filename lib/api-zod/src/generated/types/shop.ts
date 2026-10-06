@@ -18,4 +18,5 @@ export interface Shop {
   isOpen: boolean;
   categories: string[];
   image?: string | null;
+  ownerName?: string | null;
 }

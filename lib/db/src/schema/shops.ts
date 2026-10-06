@@ -23,6 +23,10 @@ export const shopsTable = pgTable("shops", {
   isOpen: boolean("is_open").notNull().default(true),
   categories: text("categories").array().notNull(),
   image: text("image"),
+  // Last 10 digits of the owner's phone. Null for the seeded demo shops,
+  // which anyone may manage while REQUIRE_AUTH is off.
+  ownerPhone: text("owner_phone").unique(),
+  ownerName: text("owner_name"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

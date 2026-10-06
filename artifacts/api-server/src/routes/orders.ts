@@ -17,19 +17,17 @@ import {
   PlaceOrderBody,
   UpdateOrderStatusBody,
 } from "@workspace/api-zod";
-import { requireAuthIfEnabled } from "../middlewares/auth";
+import {
+  callerPhone,
+  canManageShop,
+  normalizePhone,
+  requireAuthIfEnabled,
+} from "../middlewares/auth";
 
 const router: IRouter = Router();
 
 const FREE_DELIVERY_THRESHOLD = 200;
 const DELIVERY_FEE = 30;
-
-/**
- * Phones arrive in mixed formats ("+919876543210" from Supabase Auth,
- * "9876543210" from the app). Store and query by the last 10 digits so both
- * refer to the same customer.
- */
-const normalizePhone = (p: string) => p.replace(/\D/g, "").slice(-10);
 
 /** Parses weight labels like "500 g" / "1.5 kg" into kilograms. */
 function parseWeightKg(label: string): number | null {
@@ -192,6 +190,23 @@ router.patch<{ orderId: string }>("/orders/:orderId/status", requireAuthIfEnable
     return;
   }
 
+  // The shop's owner drives the lifecycle; the order's own customer may
+  // only cancel while it is still pending.
+  const [shop] = await db
+    .select({ ownerPhone: shopsTable.ownerPhone })
+    .from(shopsTable)
+    .where(eq(shopsTable.id, order.shopId))
+    .limit(1);
+  const isOwner = !!shop && canManageShop(shop, req);
+  const isCustomerCancel =
+    order.status === "pending" &&
+    nextStatus === "rejected" &&
+    callerPhone(req) === order.customerPhone;
+  if (!isOwner && !isCustomerCancel) {
+    res.status(403).json({ message: "Not allowed to update this order" });
+    return;
+  }
+
   const [updated] = await db
     .update(ordersTable)
     .set({ status: nextStatus })
@@ -203,12 +218,17 @@ router.patch<{ orderId: string }>("/orders/:orderId/status", requireAuthIfEnable
 
 router.get<{ shopId: string }>("/shops/:shopId/orders", requireAuthIfEnabled, async (req, res) => {
   const [shop] = await db
-    .select({ id: shopsTable.id })
+    .select({ id: shopsTable.id, ownerPhone: shopsTable.ownerPhone })
     .from(shopsTable)
     .where(eq(shopsTable.id, req.params.shopId))
     .limit(1);
   if (!shop) {
     res.status(404).json({ message: "Shop not found" });
+    return;
+  }
+  // Orders carry customers' phones and addresses — owner only.
+  if (!canManageShop(shop, req)) {
+    res.status(403).json({ message: "Not allowed to view this shop's orders" });
     return;
   }
 
