@@ -5,6 +5,11 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface AppConfig {
+  /** When true, a verified phone login is required; when false the app may offer demo sign-in */
+  requireAuth: boolean;
+}
+
 export interface RegisterShopRequest {
   /**
    * @minLength 2

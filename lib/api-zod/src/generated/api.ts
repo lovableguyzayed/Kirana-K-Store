@@ -16,6 +16,18 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * Settings the app needs before sign-in (e.g. whether login is enforced)
+ * @summary Public app configuration
+ */
+export const GetAppConfigResponse = zod.object({
+  requireAuth: zod
+    .boolean()
+    .describe(
+      "When true, a verified phone login is required; when false the app may offer demo sign-in",
+    ),
+});
+
+/**
  * Returns all shops
  * @summary List shops
  */

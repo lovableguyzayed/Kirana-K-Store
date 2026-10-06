@@ -30,6 +30,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /config:
+    get:
+      operationId: getAppConfig
+      tags: [health]
+      summary: Public app configuration
+      description: Settings the app needs before sign-in (e.g. whether login is enforced)
+      responses:
+        "200":
+          description: Configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppConfig"
   /shops:
     get:
       operationId: listShops
@@ -461,6 +474,14 @@ paths:
                 $ref: "#/components/schemas/ApiErrorResponse"
 components:
   schemas:
+    AppConfig:
+      type: object
+      properties:
+        requireAuth:
+          type: boolean
+          description: When true, a verified phone login is required; when false the app may offer demo sign-in
+      required:
+        - requireAuth
     RegisterShopRequest:
       type: object
       properties:

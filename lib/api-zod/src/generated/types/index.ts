@@ -7,6 +7,7 @@
  */
 
 export * from "./apiErrorResponse";
+export * from "./appConfig";
 export * from "./healthStatus";
 export * from "./listOrdersParams";
 export * from "./order";

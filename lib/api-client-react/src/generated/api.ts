@@ -18,6 +18,7 @@ import type {
 
 import type {
   ApiErrorResponse,
+  AppConfig,
   HealthStatus,
   ListOrdersParams,
   Order,
@@ -107,6 +108,82 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Settings the app needs before sign-in (e.g. whether login is enforced)
+ * @summary Public app configuration
+ */
+export const getGetAppConfigUrl = () => {
+  return `/api/config`;
+};
+
+export const getAppConfig = async (
+  options?: RequestInit,
+): Promise<AppConfig> => {
+  return customFetch<AppConfig>(getGetAppConfigUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAppConfigQueryKey = () => {
+  return [`/api/config`] as const;
+};
+
+export const getGetAppConfigQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAppConfig>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAppConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAppConfigQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAppConfig>>> = ({
+    signal,
+  }) => getAppConfig({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAppConfig>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAppConfigQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAppConfig>>
+>;
+export type GetAppConfigQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Public app configuration
+ */
+
+export function useGetAppConfig<
+  TData = Awaited<ReturnType<typeof getAppConfig>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAppConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAppConfigQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -1,11 +1,17 @@
 import { Router, type IRouter } from "express";
-import { HealthCheckResponse } from "@workspace/api-zod";
+import { GetAppConfigResponse, HealthCheckResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
 router.get("/healthz", (_req, res) => {
   const data = HealthCheckResponse.parse({ status: "ok" });
   res.json(data);
+});
+
+// Tells the app whether real phone login is enforced. While it isn't, the
+// app lets people continue without an OTP (e.g. before SMS is set up).
+router.get("/config", (_req, res) => {
+  res.json(GetAppConfigResponse.parse({ requireAuth: process.env["REQUIRE_AUTH"] === "true" }));
 });
 
 // Ops-only endpoint (not part of the client API spec): proves the server can
