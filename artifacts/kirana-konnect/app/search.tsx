@@ -190,7 +190,7 @@ export default function SearchScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.shopName, { color: colors.foreground }]}>{shop.name}</Text>
                       <Text style={[styles.shopDist, { color: colors.mutedForeground }]}>
-                        {shop.distance} · {shop.rating} ★
+                        {[shop.distance, `${shop.rating} ★`].filter(Boolean).join(" · ")}
                       </Text>
                     </View>
                     <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
@@ -228,7 +228,7 @@ export default function SearchScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.productName, { color: colors.foreground }]}>{item.name}</Text>
                   <Text style={[styles.productShop, { color: colors.mutedForeground }]}>
-                    {item.shopName} · {item.shopData.distance}
+                    {[item.shopName, item.shopData.distance].filter(Boolean).join(" · ")}
                   </Text>
                 </View>
                 <View style={styles.priceCol}>

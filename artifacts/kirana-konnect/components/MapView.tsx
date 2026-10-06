@@ -19,10 +19,9 @@ interface MapViewComponentProps {
  */
 export default function MapViewComponent({ onShopPress, selectedShop }: MapViewComponentProps) {
   const colors = useColors();
-  const { shops } = useApp();
+  const { shops, userLocation: userCoords, setUserLocation } = useApp();
   const webViewRef = useRef<WebView>(null);
   const [ready, setReady] = useState(false);
-  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const html = useMemo(
     () =>
@@ -43,7 +42,8 @@ export default function MapViewComponent({ onShopPress, selectedShop }: MapViewC
   useEffect(() => setReady(false), [html]);
 
   // Use the app's own location permission (more reliable on Android than
-  // geolocation inside the WebView). The map works without it.
+  // geolocation inside the WebView). It also drives shop distances across
+  // the app. The map works without it.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -51,8 +51,12 @@ export default function MapViewComponent({ onShopPress, selectedShop }: MapViewC
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted" || cancelled) return;
         const last = await Location.getLastKnownPositionAsync();
-        const pos = last ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
-        if (!cancelled) setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        if (last && !cancelled) {
+          setUserLocation({ lat: last.coords.latitude, lng: last.coords.longitude });
+        }
+        // Refine with a fresh fix (the last known one may be stale).
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (!cancelled) setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       } catch {
         // No location — the map simply frames the shops.
       }
@@ -60,7 +64,7 @@ export default function MapViewComponent({ onShopPress, selectedShop }: MapViewC
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setUserLocation]);
 
   useEffect(() => {
     if (!ready || !userCoords) return;

@@ -80,7 +80,9 @@ export default function HomeScreen() {
     return true;
   }).sort((a, b) => {
     if (activeFilter === "Best Rated") return b.rating - a.rating;
-    if (activeFilter === "Nearest") return parseFloat(a.distance) - parseFloat(b.distance);
+    if (activeFilter === "Nearest") {
+      return (a.distanceKm ?? Number.POSITIVE_INFINITY) - (b.distanceKm ?? Number.POSITIVE_INFINITY);
+    }
     return 0;
   });
 
@@ -152,8 +154,12 @@ export default function HomeScreen() {
             <View style={styles.pinPopupMeta}>
               <Feather name="star" size={12} color={colors.rating} />
               <Text style={[styles.pinPopupRating, { color: colors.foreground }]}>{selectedPin.rating}</Text>
-              <Text style={[styles.pinPopupDot, { color: colors.mutedForeground }]}>·</Text>
-              <Text style={[styles.pinPopupDist, { color: colors.mutedForeground }]}>{selectedPin.distance}</Text>
+              {selectedPin.distance ? (
+                <>
+                  <Text style={[styles.pinPopupDot, { color: colors.mutedForeground }]}>·</Text>
+                  <Text style={[styles.pinPopupDist, { color: colors.mutedForeground }]}>{selectedPin.distance}</Text>
+                </>
+              ) : null}
               {(() => {
                 const open = isShopCurrentlyOpen(selectedPin);
                 return (

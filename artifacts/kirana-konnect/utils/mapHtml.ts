@@ -6,9 +6,10 @@
  * (The public OpenStreetMap tile server blocks requests from in-app
  * WebViews, which left the old map grey.)
  *
- * Messages to React Native: "shop:<id>" when a pin is tapped, "map:error"
- * if the map can't be shown. React Native calls window.setSelected(id) and
- * window.setUserLocation(lat, lng) via injectJavaScript.
+ * Messages to the app: "map:ready", "shop:<id>" when a pin is tapped, and
+ * "map:error" if the map can't be shown (native: WebView bridge; web:
+ * parent.postMessage({ kkMap })). The app calls window.setSelected(id) and
+ * window.setUserLocation(lat, lng).
  */
 
 export interface MapPin {
@@ -90,8 +91,10 @@ export function buildMapHtml({
   var COLORS = ${JSON.stringify(colors)};
   var BAG = ${JSON.stringify(BAG_SVG)};
 
+  // Native: react-native-webview bridge. Web: the page runs in an iframe.
   function post(msg) {
     if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
+    else if (window.parent !== window) window.parent.postMessage({ kkMap: msg }, "*");
   }
   var failed = false;
   function showFallback() {

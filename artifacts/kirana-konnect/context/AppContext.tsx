@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import {
   ApiError,
@@ -61,6 +61,8 @@ export interface Shop {
   categories: string[];
   image?: string;
   ownerName?: string;
+  /** Kilometres from the customer; set once their location is known. */
+  distanceKm?: number;
 }
 
 export interface Order {
@@ -89,6 +91,8 @@ interface AppContextType {
   cart: CartItem[];
   orders: Order[];
   shops: Shop[];
+  userLocation: LatLng | null;
+  setUserLocation: (loc: LatLng | null) => void;
   isLive: boolean;
   refreshOrders: () => Promise<void>;
   refreshOrder: (orderId: string) => Promise<void>;
@@ -385,7 +389,10 @@ const MOCK_ORDERS: Order[] = [
 // offline/demo fallback; when the backend is reachable it replaces it.
 // ---------------------------------------------------------------------------
 
-const MAP_CENTER = { lat: 28.6139, lng: 77.209 };
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
 
 function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const toRad = (d: number) => (d * Math.PI) / 180;
@@ -397,6 +404,20 @@ function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): num
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+const formatDistance = (km: number) =>
+  km < 1 ? `${Math.max(50, Math.round((km * 1000) / 50) * 50)} m` : `${km < 10 ? km.toFixed(1) : Math.round(km)} km`;
+
+/**
+ * Distance is measured from the customer's real location. Without it we
+ * show no distance rather than a misleading one (the bundled demo shops
+ * keep their sample values).
+ */
+function withDistance(shop: Shop, from: LatLng | null): Shop {
+  if (!from) return shop;
+  const km = distanceKm(from.lat, from.lng, shop.lat, shop.lng);
+  return { ...shop, distanceKm: km, distance: formatDistance(km) };
+}
+
 function apiShopToApp(s: ApiShop): Shop {
   return {
     id: s.id,
@@ -405,7 +426,7 @@ function apiShopToApp(s: ApiShop): Shop {
     lat: s.lat,
     lng: s.lng,
     rating: s.rating,
-    distance: `${distanceKm(MAP_CENTER.lat, MAP_CENTER.lng, s.lat, s.lng).toFixed(1)} km`,
+    distance: "",
     openTime: s.openTime,
     closeTime: s.closeTime,
     isOpen: s.isOpen,
@@ -489,6 +510,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>(MOCK_ORDERS);
   const [shops, setShops] = useState<Shop[]>(MOCK_SHOPS);
+  const [userLocation, setUserLocation] = useState<LatLng | null>(null);
+  const shopsWithDistance = useMemo(
+    () => shops.map((s) => withDistance(s, userLocation)),
+    [shops, userLocation],
+  );
   const [isLive, setIsLive] = useState(false);
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [deliveryMode, setDeliveryMode] = useState<"pickup" | "delivery">("delivery");
@@ -868,7 +894,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       value={{
         cart,
         orders,
-        shops,
+        shops: shopsWithDistance,
+        userLocation,
+        setUserLocation,
         isLive,
         refreshOrders,
         refreshOrder,
